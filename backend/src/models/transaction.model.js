@@ -2,7 +2,6 @@ import mongoose from 'mongoose';
 
 const transactionSchema = new mongoose.Schema(
   {
-    // ─── Who ──────────────────────────────────────────
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -14,7 +13,6 @@ const transactionSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ─── Reference ────────────────────────────────────
     tripId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Trip',
@@ -26,7 +24,6 @@ const transactionSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ─── Details ──────────────────────────────────────
     amount: { type: Number, required: true },
     type: {
       type: String,
@@ -52,13 +49,11 @@ const transactionSchema = new mongoose.Schema(
       default: 'pending',
     },
 
-    // ─── Gateway details ──────────────────────────────
     gatewayRef: { type: String, default: null }, // khalti/esewa transaction id
   },
   { timestamps: true }
 );
 
-// ─── Indexes ──────────────────────────────────────────
 transactionSchema.index({ userId: 1 });
 transactionSchema.index({ driverId: 1 });
 transactionSchema.index({ tripId: 1 });

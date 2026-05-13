@@ -6,21 +6,21 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const seedAdmin = asyncHandler(async () => {
+const seedAdmin = async () => {
   await dbConnect();
+  const existingAdmin = await Admin.findOne({ email: 'arbinbabuthapamagar2002@gmail.com' });
+  if (existingAdmin) {
+    throw new apiError(400, 'superadmin already exits');
+  }
 
   const admin = await Admin.create({
     name: 'Arbeen',
     email: 'arbinbabuthapamagar2002@gmail.com',
     password: 'Arbeen@1',
-    phoneNumber: '9818856764',
-    role: 'admin',
+    phone: '9818856764',
+    role: 'superadmin',
   });
-  const existingAdmin = await Admin.findOne({ email: 'arbinbabuthapamagar2002@gmail.com' });
-  if (existingAdmin) {
-    throw new apiError(400, 'Admin already exits');
-  }
   console.log('admin EMAIL: ', admin.email);
   process.exit();
-});
+};
 seedAdmin();

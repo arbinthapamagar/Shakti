@@ -1,44 +1,48 @@
 import mongoose from 'mongoose';
 
 const reviewSchema = new mongoose.Schema(
-  {
-    // ─── References ───────────────────────────────────
-    tripId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Trip',
-      required: true,
-    },
-    fromUser: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    toDriver: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Driver',
-      default: null,
-    },
-    toUser: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
+    {
+        tripId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Trip',
+            required: true,
+        },
+        fromUser: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        },
+        toDriver: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Driver',
+            default: null,
+        },
+        toUser: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            default: null,
+        },
 
-    // ─── Review Details ───────────────────────────────
-    rating:  { type: Number, required: true, min: 1, max: 5 },
-    comment: { type: String, default: null },
+        rating: {
+            type: Number,
+            required: true,
+            min: 1,
+            max: 5,
+        },
+        comment: {
+            type: String,
+            default: null,
+        },
 
-    // ─── Who reviewed who ─────────────────────────────
-    reviewType: {
-      type: String,
-      enum: ['rider_to_driver', 'driver_to_rider'],
-      required: true,
+        reviewType: {
+            type: String,
+            enum: ['rider_to_driver', 'driver_to_rider'],
+            required: true,
+        },
     },
-  },
-  { timestamps: true }
+    { timestamps: true }
 );
 
-// ─── Indexes ──────────────────────────────────────────
 reviewSchema.index({ tripId: 1 });
 reviewSchema.index({ toDriver: 1 });
 reviewSchema.index({ toUser: 1 });
