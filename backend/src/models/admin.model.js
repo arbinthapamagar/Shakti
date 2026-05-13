@@ -1,0 +1,162 @@
+import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
+import jsonwebtoken from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const adminSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    password: {
+      type: String,
+      required: true,
+    },
+    avatarUrl: {
+      type: String,
+      default: null,
+    },
+
+    role: {
+      type: String,
+      enum: ['superadmin', 'headmaster', 'moderator'],
+      required: true,
+    },
+
+    permissions: {
+      manageUsers:         { type: Boolean, default: false },
+      manageDrivers:       { type: Boolean, default: false },
+      manageTrips:         { type: Boolean, default: false },
+      managePayments:      { type: Boolean, default: false },
+      verifyDocuments:     { type: Boolean, default: false },
+      handleSupport:       { type: Boolean, default: false },
+      manageAdmins:        { type: Boolean, default: false },
+      viewAnalytics:       { type: Boolean, default: false },
+      manageSubscriptions: { type: Boolean, default: false },
+      manageSuppliers:     { type: Boolean, default: false },
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+
+    // only superadmin can create other admins
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      default: null,
+    },
+
+    refreshToken: {
+      type: String,
+      default: null,
+    },
+    lastLoginAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+adminSchema.index({ email: 1 });
+adminSchema.index({ role: 1 });
+adminSchema.index({ isActive: 1 });
+
+adminSchema.pre('save', function (next) {
+  if (this.isModified('role')) {
+    if (this.role === 'superadmin') {
+      this.permissions = {
+        manageUsers:         true,
+        manageDrivers:       true,
+        manageTrips:         true,
+        managePayments:      true,
+        verifyDocuments:     true,
+        handleSupport:       true,
+        manageAdmins:        true,
+        viewAnalytics:       true,
+        manageSubscriptions: true,
+        manageSuppliers:     true,
+      };
+    } else if (this.role === 'headmaster') {
+      this.permissions = {
+        manageUsers:         true,
+        manageDrivers:       true,
+        manageTrips:         true,
+        managePayments:      false,
+        verifyDocuments:     true,
+        handleSupport:       true,
+        manageAdmins:        false,
+        viewAnalytics:       true,
+        manageSubscriptions: true,
+        manageSuppliers:     true,
+      };
+    } else if (this.role === 'moderator') {
+      this.permissions = {
+        manageUsers:         true,
+        manageDrivers:       true,
+        manageTrips:         false,
+        managePayments:      false,
+        verifyDocuments:     true,
+        handleSupport:       true,
+        manageAdmins:        false,
+        viewAnalytics:       false,
+        manageSubscriptions: false,
+        manageSuppliers:     false,
+      };
+    }
+  }
+
+  next();
+});
+
+adminSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
+
+adminSchema.methods.isPasswordCorrect = async function (password) {
+  return await bcrypt.compare(password, this.password);
+};
+
+adminSchema.methods.generateAccessToken = function () {
+  return jsonwebtoken.sign(
+    {
+      _id: this._id,
+      role: this.role,
+      permissions: this.permissions,
+    },
+    process.env.ADMIN_ACCESS_TOKEN_SECRET,
+    { expiresIn: process.env.ADMIN_ACCESS_TOKEN_EXPIRY }
+  );
+};
+
+adminSchema.methods.generateRefreshToken = function () {
+  return jsonwebtoken.sign(
+    { _id: this._id },
+    process.env.ADMIN_REFRESH_TOKEN_SECRET,
+    { expiresIn: process.env.ADMIN_REFRESH_TOKEN_EXPIRY }
+  );
+};
+
+export const Admin = mongoose.model('Admin', adminSchema);
