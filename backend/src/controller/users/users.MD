@@ -1,5 +1,24 @@
 Auth (user.auth.controller.js)
 1. Register          →  create new user =====> Done 
+
+
+1. get phone/email + otp from req.body
+2. validate both required
+3. find user by phone or email
+4. check user exists
+5. check otp.code exists in DB
+6. check otp not expired
+7. check otp matches
+8. set isVerified true
+9. clear otp from DB
+10. generate tokens
+11. save refreshToken
+12. return response + tokens
+
+
+
+
+
 2. Login             →  phone + password
 3. Logout            →  clear refresh token
 4. Refresh Token     →  get new access token
