@@ -6,11 +6,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import { PaymentLogo } from '../components/Brand';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
   CheckIcon,
-  PaymentBadge,
   PlusIcon,
 } from '../components/Icons';
 import { CURRENT_USER, TRANSACTIONS } from '../data/mockData';
@@ -110,7 +110,7 @@ export default function WalletScreen() {
             return (
               <View key={id} style={styles.methodRow}>
                 <View style={styles.methodIcon}>
-                  <PaymentBadge id={id} size={22} />
+                  <PaymentLogo id={id} size={26} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.methodLabel}>{label}</Text>

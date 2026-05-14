@@ -6,12 +6,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import {
-  ChevronIcon,
-  ReceiptIcon,
-  StarIcon,
-  VehicleIcon,
-} from '../components/Icons';
+import { VehiclePhoto } from '../components/Brand';
+import { ChevronIcon, ReceiptIcon, StarIcon } from '../components/Icons';
 import { TRIPS } from '../data/mockData';
 import { colors } from '../theme/colors';
 
@@ -100,7 +96,7 @@ export default function TripsScreen() {
             >
               <View style={styles.cardTop}>
                 <View style={styles.cardIcon}>
-                  <VehicleIcon type={t.vehicleType} size={36} />
+                  <VehiclePhoto type={t.vehicleType} size={40} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.cardHeaderRow}>
