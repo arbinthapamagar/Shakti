@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Sheet } from '../../components/ui';
 import { FlagIcon, PinIcon } from '../../components/Icons';
+import { confirm as hapticConfirm, pick as hapticPick } from '../../components/haptics';
 import { CURRENT_USER, RECENT_DESTINATIONS } from '../../data/mockData';
 import { colors, radius, spacing, type } from '../../theme';
 
@@ -21,7 +22,8 @@ export default function SearchSheet({
   setDestination,
   onPick,
   onSubmit,
-  onOpenMapPicker,
+  onPickPickupOnMap,
+  onPickDestOnMap,
 }) {
   return (
     <Sheet tall>
@@ -60,13 +62,25 @@ export default function SearchSheet({
       </View>
 
       <View style={styles.actions}>
-        <Pressable style={styles.action}>
+        <Pressable
+          style={styles.action}
+          onPress={() => {
+            hapticConfirm();
+            onPickPickupOnMap?.();
+          }}
+        >
           <Ionicons name="locate" size={16} color={colors.primary} />
-          <Text style={styles.actionText}>Use current location</Text>
+          <Text style={styles.actionText}>Pickup on map</Text>
         </Pressable>
-        <Pressable style={styles.action} onPress={onOpenMapPicker}>
+        <Pressable
+          style={styles.action}
+          onPress={() => {
+            hapticConfirm();
+            onPickDestOnMap?.();
+          }}
+        >
           <Ionicons name="map" size={16} color="#5c6fff" />
-          <Text style={styles.actionText}>Set on map</Text>
+          <Text style={styles.actionText}>Drop-off on map</Text>
         </Pressable>
       </View>
 
@@ -80,7 +94,10 @@ export default function SearchSheet({
           <Pressable
             key={s.label}
             style={styles.suggestion}
-            onPress={() => onPick(s.address)}
+            onPress={() => {
+              hapticPick();
+              onPick(s.address);
+            }}
           >
             <View style={styles.suggestionIcon}>
               <Ionicons
@@ -105,7 +122,10 @@ export default function SearchSheet({
           <Pressable
             key={r.id}
             style={styles.suggestion}
-            onPress={() => onPick(r.title)}
+            onPress={() => {
+              hapticPick();
+              onPick(r.title);
+            }}
           >
             <View style={styles.suggestionIcon}>
               <Ionicons name="time" size={16} color={colors.textMuted} />

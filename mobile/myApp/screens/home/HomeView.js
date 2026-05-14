@@ -9,9 +9,10 @@ import {
   View,
 } from 'react-native';
 import { VehiclePhoto } from '../../components/Brand';
+import { pick as hapticPick } from '../../components/haptics';
 import { ChevronIcon, SearchIcon } from '../../components/Icons';
 import { CURRENT_USER } from '../../data/mockData';
-import { colors, radius, spacing, STATUS_TOP_PAD, type } from '../../theme';
+import { colors, radius, shadow, spacing, STATUS_TOP_PAD, type } from '../../theme';
 import BrandLogo from './BrandLogo';
 import Map from './Map';
 import { HOME_REFRESH_MS } from './constants';
@@ -32,7 +33,7 @@ function savedPlaceIcon(label) {
   return SAVED_PLACE_ICON[label] || 'location';
 }
 
-export default function HomeView({ onOpenProfile, onTapSearch, onPickSaved }) {
+export default function HomeView({ onTapSearch, onPickSaved }) {
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState('rickshaw');
 
@@ -45,11 +46,10 @@ export default function HomeView({ onOpenProfile, onTapSearch, onPickSaved }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <BrandLogo />
-        <Pressable style={styles.avatarBtn} onPress={onOpenProfile} hitSlop={8}>
-          <Text style={styles.avatarLetter}>
-            {CURRENT_USER.name.charAt(0)}
-          </Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          <View style={styles.statusDot} />
+          <Text style={styles.statusText}>Live</Text>
+        </View>
       </View>
 
       <View style={styles.mapBand}>
@@ -113,7 +113,10 @@ export default function HomeView({ onOpenProfile, onTapSearch, onPickSaved }) {
                 styles.savedRow,
                 i !== arr.length - 1 && styles.savedRowDivider,
               ]}
-              onPress={() => onPickSaved(s.address)}
+              onPress={() => {
+                hapticPick();
+                onPickSaved(s.address);
+              }}
             >
               <View style={styles.savedIcon}>
                 <Ionicons
@@ -147,20 +150,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
-    paddingTop: STATUS_TOP_PAD,
-    paddingBottom: spacing.sm,
+    paddingTop: Math.max(0, STATUS_TOP_PAD - 12),
+    paddingBottom: spacing.xs + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+    backgroundColor: colors.surface,
   },
-  avatarBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
+  headerRight: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
   },
-  avatarLetter: { ...type.h3, color: colors.text },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  statusText: {
+    color: colors.primaryDark,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
 
   mapBand: { height: 200, backgroundColor: '#e8ece6' },
 

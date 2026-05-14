@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ChevronIcon, StarIcon } from '../components/Icons';
+import MapPicker from '../components/MapPicker';
+import { confirm as hapticConfirm } from '../components/haptics';
 import { Ionicons } from '@expo/vector-icons';
 import {
   Pressable,
@@ -138,6 +140,7 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
   const [addresses, setAddresses] = useState(PROFILE.savedAddresses);
   const [documents, setDocuments] = useState(PROFILE.driverProfile.documents);
   const [tfaEnabled, setTfaEnabled] = useState(false);
+  const [role, setRole] = useState(PROFILE.role || 'passenger');
   const [modal, setModal] = useState(null);
   const closeModal = () => setModal(null);
 
@@ -181,7 +184,7 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
     }
   };
 
-  const isDriver = PROFILE.role === 'driver';
+  const isDriver = role === 'driver';
   const initials = PROFILE.name
     .split(' ')
     .map((p) => p[0])
@@ -235,38 +238,49 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
           <Text style={styles.name}>{profile.name}</Text>
           <Text style={styles.heroSub}>{profile.email}</Text>
 
-          <View style={styles.roleRow}>
-            <View style={styles.rolePill}>
-              <Ionicons
-                name={isDriver ? 'car-sport' : 'person'}
-                size={12}
-                color={colors.primaryDark}
-              />
-              <Text style={styles.rolePillText}>
-                {isDriver ? 'Driver' : 'Passenger'}
-              </Text>
-            </View>
-            <View
+          <View style={styles.modeToggle}>
+            <Pressable
+              onPress={() => setRole('passenger')}
               style={[
-                styles.statusPill,
-                PROFILE.accountStatus === 'active'
-                  ? styles.statusActive
-                  : styles.statusInactive,
+                styles.modeBtn,
+                !isDriver && styles.modeBtnActive,
               ]}
             >
-              <View
-                style={[
-                  styles.statusDot,
-                  PROFILE.accountStatus === 'active'
-                    ? styles.statusDotActive
-                    : styles.statusDotInactive,
-                ]}
+              <Ionicons
+                name="person"
+                size={14}
+                color={!isDriver ? '#ffffff' : colors.textMuted}
               />
-              <Text style={styles.statusPillText}>
-                {PROFILE.accountStatus.charAt(0).toUpperCase() +
-                  PROFILE.accountStatus.slice(1)}
+              <Text
+                style={[
+                  styles.modeBtnText,
+                  !isDriver && styles.modeBtnTextActive,
+                ]}
+              >
+                Passenger
               </Text>
-            </View>
+            </Pressable>
+            <Pressable
+              onPress={() => setRole('driver')}
+              style={[
+                styles.modeBtn,
+                isDriver && styles.modeBtnActive,
+              ]}
+            >
+              <Ionicons
+                name="car-sport"
+                size={14}
+                color={isDriver ? '#ffffff' : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.modeBtnText,
+                  isDriver && styles.modeBtnTextActive,
+                ]}
+              >
+                Driver
+              </Text>
+            </Pressable>
           </View>
         </View>
 
@@ -809,15 +823,29 @@ function TopupForm({ addToWallet, close }) {
   );
 }
 
+function SetOnMapButton({ onPress }) {
+  return (
+    <Pressable
+      style={styles.setOnMapBtn}
+      onPress={() => {
+        hapticConfirm();
+        onPress?.();
+      }}
+    >
+      <Ionicons name="map" size={16} color="#5c6fff" />
+      <Text style={styles.setOnMapText}>Set on map</Text>
+    </Pressable>
+  );
+}
+
 function EditAddressForm({ address, updateAddress, removeAddress, close }) {
   const [value, setValue] = useState(address.address);
+  const [picker, setPicker] = useState(false);
   return (
     <>
-      <ModalHeader
-        title={`Edit ${address.label}`}
-        close={close}
-      />
+      <ModalHeader title={`Edit ${address.label}`} close={close} />
       <FormField label="Address" value={value} onChangeText={setValue} />
+      <SetOnMapButton onPress={() => setPicker(true)} />
       <PrimaryButton
         label="Save"
         onPress={() => {
@@ -834,6 +862,15 @@ function EditAddressForm({ address, updateAddress, removeAddress, close }) {
       >
         <Text style={styles.dangerBtnText}>Remove place</Text>
       </Pressable>
+      <MapPicker
+        visible={picker}
+        title={`Pin ${address.label}`}
+        onCancel={() => setPicker(false)}
+        onConfirm={(addr) => {
+          setValue(addr);
+          setPicker(false);
+        }}
+      />
     </>
   );
 }
@@ -841,11 +878,13 @@ function EditAddressForm({ address, updateAddress, removeAddress, close }) {
 function AddAddressForm({ addAddress, close }) {
   const [label, setLabel] = useState('');
   const [addr, setAddr] = useState('');
+  const [picker, setPicker] = useState(false);
   return (
     <>
       <ModalHeader title="Add a place" close={close} />
       <FormField label="Label (e.g. Gym)" value={label} onChangeText={setLabel} />
       <FormField label="Address" value={addr} onChangeText={setAddr} />
+      <SetOnMapButton onPress={() => setPicker(true)} />
       <PrimaryButton
         label="Add place"
         onPress={() => {
@@ -853,6 +892,15 @@ function AddAddressForm({ addAddress, close }) {
             addAddress(label.trim().toLowerCase(), addr.trim());
             close();
           }
+        }}
+      />
+      <MapPicker
+        visible={picker}
+        title="Pin location"
+        onCancel={() => setPicker(false)}
+        onConfirm={(a) => {
+          setAddr(a);
+          setPicker(false);
         }}
       />
     </>
@@ -1283,6 +1331,36 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 14,
   },
+  modeToggle: {
+    flexDirection: 'row',
+    marginTop: 16,
+    padding: 4,
+    borderRadius: 999,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cfe6d8',
+    gap: 4,
+  },
+  modeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  modeBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  modeBtnText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modeBtnTextActive: {
+    color: '#ffffff',
+  },
   rolePill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1670,6 +1748,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.dangerSoft,
   },
   dangerBtnText: { color: colors.danger, fontSize: 14, fontWeight: '700' },
+
+  setOnMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    marginBottom: 10,
+  },
+  setOnMapText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
 
   presetRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   presetChip: {

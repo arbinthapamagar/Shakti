@@ -1,12 +1,13 @@
+import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import MapPicker from '../../components/MapPicker';
 import { NEARBY_DRIVERS, VEHICLE_TYPES } from '../../data/mockData';
 import { colors, shadow } from '../../theme';
 import ActiveTripSheet from './ActiveTripSheet';
 import BiddingSheet from './BiddingSheet';
 import HomeView from './HomeView';
 import Map from './Map';
-import MapPickSheet from './MapPickSheet';
 import OptionsSheet from './OptionsSheet';
 import SearchSheet from './SearchSheet';
 import useRideFlow from './useRideFlow';
@@ -20,7 +21,7 @@ import useRideFlow from './useRideFlow';
  *   2. on any other step, show the live `Map` behind a bottom Sheet
  *   3. dispatch the correct Sheet for the current step
  */
-export default function HomeScreen({ onOpenProfile }) {
+export default function HomeScreen() {
   const flow = useRideFlow();
   const {
     step,
@@ -42,15 +43,31 @@ export default function HomeScreen({ onOpenProfile }) {
     acceptBid,
   } = flow;
 
+  // Which field the map picker is editing — 'pickup' or 'dest'.
+  const [mapTarget, setMapTarget] = useState('dest');
+
+  // Defaults to Rickshaw and seeds the offer with its base fare so the
+  // confirm button is active the instant the user lands on Options.
+  const goToOptions = (dest) => {
+    setDestination(dest);
+    const rickshaw = VEHICLE_TYPES.find((v) => v.id === 'tuktuk');
+    if (rickshaw) {
+      setVehicleId('tuktuk');
+      setOfferedPrice(String(rickshaw.baseFare));
+    }
+    setStep('options');
+  };
+
+  const openMapFor = (target) => {
+    setMapTarget(target);
+    setStep('map-pick');
+  };
+
   if (step === 'home') {
     return (
       <HomeView
-        onOpenProfile={onOpenProfile}
         onTapSearch={() => setStep('search')}
-        onPickSaved={(addr) => {
-          setDestination(addr);
-          setStep('options');
-        }}
+        onPickSaved={goToOptions}
       />
     );
   }
@@ -82,24 +99,26 @@ export default function HomeScreen({ onOpenProfile }) {
             setPickup={setPickup}
             destination={destination}
             setDestination={setDestination}
-            onPick={(value) => {
-              setDestination(value);
-              setStep('options');
-            }}
-            onSubmit={() => destination.trim() && setStep('options')}
-            onOpenMapPicker={() => setStep('map-pick')}
+            onPick={goToOptions}
+            onSubmit={() => destination.trim() && goToOptions(destination)}
+            onPickPickupOnMap={() => openMapFor('pickup')}
+            onPickDestOnMap={() => openMapFor('dest')}
           />
         )}
 
-        {step === 'map-pick' && (
-          <MapPickSheet
-            onCancel={() => setStep('search')}
-            onConfirm={(label) => {
-              setDestination(label);
-              setStep('options');
-            }}
-          />
-        )}
+        <MapPicker
+          visible={step === 'map-pick'}
+          title={mapTarget === 'pickup' ? 'Pickup' : 'Drop-off'}
+          onCancel={() => setStep('search')}
+          onConfirm={(label) => {
+            if (mapTarget === 'pickup') {
+              setPickup(label);
+              setStep('search');
+            } else {
+              goToOptions(label);
+            }
+          }}
+        />
 
         {step === 'options' && (
           <OptionsSheet

@@ -130,11 +130,11 @@ export default function OptionsSheet({
       </ScrollView>
 
       <Button
-        label={`Request ${vehicle?.name} for Rs ${priceNum || suggested}`}
-        size="sm"
+        label={`Request ${vehicle?.name} · Rs ${priceNum || suggested}`}
+        size="md"
         onPress={onConfirm}
         disabled={!canConfirm}
-        style={{ marginTop: spacing.sm + 2 }}
+        style={styles.cta}
       />
     </Sheet>
   );
@@ -229,4 +229,8 @@ const styles = StyleSheet.create({
   },
 
   hint: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm },
+  cta: {
+    marginTop: spacing.md,
+    paddingVertical: 16,
+  },
 });

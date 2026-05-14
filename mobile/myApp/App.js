@@ -51,9 +51,7 @@ export default function App() {
       {!overlay && (
         <View style={styles.body}>
           <View style={styles.content}>
-            {tab === 'home' && (
-              <HomeScreen onOpenProfile={() => setTab('account')} />
-            )}
+            {tab === 'home' && <HomeScreen />}
             {tab === 'trips' && <TripsScreen />}
             {tab === 'wallet' && <WalletScreen />}
             {tab === 'inbox' && <InboxScreen />}
