@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Alert, Image, Platform } from 'react-native';
+import {
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  TextInput,
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ChevronIcon, StarIcon } from '../components/Icons';
 import { Ionicons } from '@expo/vector-icons';
@@ -122,6 +129,38 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
   const [rideReminders, setRideReminders] = useState(true);
   const [avatarUri, setAvatarUri] = useState(null);
 
+  const [profile, setProfile] = useState({
+    name: PROFILE.name,
+    phone: PROFILE.phone,
+    email: PROFILE.email,
+    walletBalance: PROFILE.walletBalance,
+  });
+  const [addresses, setAddresses] = useState(PROFILE.savedAddresses);
+  const [documents, setDocuments] = useState(PROFILE.driverProfile.documents);
+  const [tfaEnabled, setTfaEnabled] = useState(false);
+  const [modal, setModal] = useState(null);
+  const closeModal = () => setModal(null);
+
+  const updateAddress = (label, newAddress) => {
+    setAddresses((prev) =>
+      prev.map((a) => (a.label === label ? { ...a, address: newAddress } : a)),
+    );
+  };
+  const addAddress = (label, address) => {
+    setAddresses((prev) => [...prev, { label, address }]);
+  };
+  const removeAddress = (label) => {
+    setAddresses((prev) => prev.filter((a) => a.label !== label));
+  };
+  const toggleDocument = (key) => {
+    setDocuments((prev) =>
+      prev.map((d) => (d.key === key ? { ...d, uploaded: !d.uploaded } : d)),
+    );
+  };
+  const addToWallet = (amount) => {
+    setProfile((p) => ({ ...p, walletBalance: p.walletBalance + amount }));
+  };
+
   const pickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -156,8 +195,12 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
           <Ionicons name="chevron-back" size={20} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Account</Text>
-        <Pressable style={styles.editBtn} hitSlop={8}>
-          <Ionicons name="create-outline" size={18} color={colors.primary} />
+        <Pressable
+          style={styles.editBtn}
+          onPress={() => setModal({ type: 'edit-profile' })}
+          hitSlop={8}
+        >
+          <Ionicons name="create-outline" size={18} color={colors.primaryDark} />
           <Text style={styles.editText}>Edit</Text>
         </Pressable>
       </View>
@@ -189,8 +232,8 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
             </View>
           </Pressable>
 
-          <Text style={styles.name}>{PROFILE.name}</Text>
-          <Text style={styles.heroSub}>{PROFILE.email}</Text>
+          <Text style={styles.name}>{profile.name}</Text>
+          <Text style={styles.heroSub}>{profile.email}</Text>
 
           <View style={styles.roleRow}>
             <View style={styles.rolePill}>
@@ -252,16 +295,16 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
         </View>
 
         <Section title="Personal information" collapsible defaultOpen={false}>
-          <Row label="Full name" value={PROFILE.name} />
+          <Row label="Full name" value={profile.name} />
           <Row
             label="Phone"
-            value={PROFILE.phone}
+            value={profile.phone}
             badge={PROFILE.isPhoneVerified ? 'Verified' : 'Unverified'}
             badgeTone={PROFILE.isPhoneVerified ? 'good' : 'warn'}
           />
           <Row
             label="Email"
-            value={PROFILE.email}
+            value={profile.email}
             badge={PROFILE.isEmailVerified ? 'Verified' : 'Unverified'}
             badgeTone={PROFILE.isEmailVerified ? 'good' : 'warn'}
           />
@@ -275,10 +318,13 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
             <View>
               <Text style={styles.walletLabel}>Wallet balance</Text>
               <Text style={styles.walletAmount}>
-                Rs {PROFILE.walletBalance.toLocaleString()}
+                Rs {profile.walletBalance.toLocaleString()}
               </Text>
             </View>
-            <Pressable style={styles.topUpBtn}>
+            <Pressable
+              style={styles.topUpBtn}
+              onPress={() => setModal({ type: 'topup' })}
+            >
               <Text style={styles.topUpText}>Top up</Text>
             </Pressable>
           </View>
@@ -312,15 +358,28 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
         )}
 
         <Section title="Saved places">
-          {PROFILE.savedAddresses.map((a, i) => (
-            <View
+          {addresses.map((a, i) => (
+            <Pressable
               key={a.label}
               style={[
                 styles.savedRow,
-                i === PROFILE.savedAddresses.length - 1 && styles.rowLast,
+                i === addresses.length - 1 && styles.rowLast,
               ]}
+              onPress={() => setModal({ type: 'edit-address', data: a })}
             >
-              <View style={styles.savedIcon} />
+              <View style={styles.savedIcon}>
+                <Ionicons
+                  name={
+                    a.label === 'home'
+                      ? 'home'
+                      : a.label === 'work'
+                      ? 'briefcase'
+                      : 'location'
+                  }
+                  size={16}
+                  color={colors.primaryDark}
+                />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.savedLabel}>
                   {a.label.charAt(0).toUpperCase() + a.label.slice(1)}
@@ -330,9 +389,13 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
                 </Text>
               </View>
               <Text style={styles.savedAction}>Edit</Text>
-            </View>
+            </Pressable>
           ))}
-          <Pressable style={styles.addAddressBtn}>
+          <Pressable
+            style={styles.addAddressBtn}
+            onPress={() => setModal({ type: 'add-address' })}
+          >
+            <Ionicons name="add-circle" size={18} color={colors.primary} />
             <Text style={styles.addAddressText}>Add a place</Text>
           </Pressable>
         </Section>
@@ -441,16 +504,22 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
             </Section>
 
             <Section title="Documents" collapsible defaultOpen={false}>
-              {PROFILE.driverProfile.documents.map((doc, i) => (
-                <View
+              {documents.map((doc, i) => (
+                <Pressable
                   key={doc.key}
                   style={[
                     styles.docRow,
-                    i === PROFILE.driverProfile.documents.length - 1 &&
-                      styles.rowLast,
+                    i === documents.length - 1 && styles.rowLast,
                   ]}
+                  onPress={() => setModal({ type: 'doc', data: doc })}
                 >
-                  <View style={styles.docIcon} />
+                  <View style={styles.docIcon}>
+                    <Ionicons
+                      name="document-text"
+                      size={18}
+                      color={colors.primaryDark}
+                    />
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.docLabel}>{doc.label}</Text>
                     <Text
@@ -465,7 +534,7 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
                   <Text style={styles.docAction}>
                     {doc.uploaded ? 'View' : 'Upload'}
                   </Text>
-                </View>
+                </Pressable>
               ))}
             </Section>
           </>
@@ -503,11 +572,28 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
         </Section>
 
         <Section title="Security & support">
-          <LinkRow label="Change password" />
-          <LinkRow label="Two-factor authentication" />
-          <LinkRow label="Linked devices" />
-          <LinkRow label="Help centre" />
-          <LinkRow label="Contact support" last />
+          <LinkRow
+            label="Change password"
+            onPress={() => setModal({ type: 'password' })}
+          />
+          <LinkRow
+            label="Two-factor authentication"
+            badge={tfaEnabled ? 'On' : 'Off'}
+            onPress={() => setModal({ type: 'tfa' })}
+          />
+          <LinkRow
+            label="Linked devices"
+            onPress={() => setModal({ type: 'devices' })}
+          />
+          <LinkRow
+            label="Help centre"
+            onPress={() => setModal({ type: 'help' })}
+          />
+          <LinkRow
+            label="Contact support"
+            onPress={() => setModal({ type: 'contact' })}
+            last
+          />
         </Section>
 
         <Section title="About">
@@ -521,7 +607,444 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
 
         <Text style={styles.footer}>Shakti, Kathmandu</Text>
       </ScrollView>
+
+      <ProfileModal
+        modal={modal}
+        close={closeModal}
+        profile={profile}
+        setProfile={setProfile}
+        updateAddress={updateAddress}
+        addAddress={addAddress}
+        removeAddress={removeAddress}
+        toggleDocument={toggleDocument}
+        addToWallet={addToWallet}
+        tfaEnabled={tfaEnabled}
+        setTfaEnabled={setTfaEnabled}
+      />
     </View>
+  );
+}
+
+function ProfileModal({
+  modal,
+  close,
+  profile,
+  setProfile,
+  updateAddress,
+  addAddress,
+  removeAddress,
+  toggleDocument,
+  addToWallet,
+  tfaEnabled,
+  setTfaEnabled,
+}) {
+  return (
+    <Modal
+      visible={!!modal}
+      transparent
+      animationType="slide"
+      onRequestClose={close}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalBackdrop}
+      >
+        <Pressable style={styles.modalDismiss} onPress={close} />
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHandle} />
+          {modal?.type === 'edit-profile' && (
+            <EditProfileForm
+              profile={profile}
+              setProfile={setProfile}
+              close={close}
+            />
+          )}
+          {modal?.type === 'topup' && (
+            <TopupForm addToWallet={addToWallet} close={close} />
+          )}
+          {modal?.type === 'edit-address' && (
+            <EditAddressForm
+              address={modal.data}
+              updateAddress={updateAddress}
+              removeAddress={removeAddress}
+              close={close}
+            />
+          )}
+          {modal?.type === 'add-address' && (
+            <AddAddressForm addAddress={addAddress} close={close} />
+          )}
+          {modal?.type === 'doc' && (
+            <DocViewer
+              doc={modal.data}
+              toggleDocument={toggleDocument}
+              close={close}
+            />
+          )}
+          {modal?.type === 'password' && <PasswordForm close={close} />}
+          {modal?.type === 'tfa' && (
+            <TfaForm
+              enabled={tfaEnabled}
+              setEnabled={setTfaEnabled}
+              close={close}
+            />
+          )}
+          {modal?.type === 'devices' && <LinkedDevices close={close} />}
+          {modal?.type === 'help' && <HelpCentre close={close} />}
+          {modal?.type === 'contact' && <ContactSupport close={close} />}
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function ModalHeader({ title, close }) {
+  return (
+    <View style={styles.modalHeader}>
+      <Text style={styles.modalTitle}>{title}</Text>
+      <Pressable onPress={close} hitSlop={8} style={styles.modalClose}>
+        <Ionicons name="close" size={20} color={colors.text} />
+      </Pressable>
+    </View>
+  );
+}
+
+function FormField({ label, value, onChangeText, keyboardType, secure }) {
+  return (
+    <View style={styles.formField}>
+      <Text style={styles.formLabel}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        style={styles.formInput}
+        placeholderTextColor={colors.textFaint}
+        keyboardType={keyboardType}
+        secureTextEntry={secure}
+        autoCapitalize="none"
+      />
+    </View>
+  );
+}
+
+function PrimaryButton({ label, onPress }) {
+  return (
+    <Pressable style={styles.primaryBtn} onPress={onPress}>
+      <Text style={styles.primaryBtnText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function EditProfileForm({ profile, setProfile, close }) {
+  const [name, setName] = useState(profile.name);
+  const [phone, setPhone] = useState(profile.phone);
+  const [email, setEmail] = useState(profile.email);
+  return (
+    <>
+      <ModalHeader title="Edit profile" close={close} />
+      <FormField label="Full name" value={name} onChangeText={setName} />
+      <FormField
+        label="Phone"
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+      />
+      <FormField
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+      />
+      <PrimaryButton
+        label="Save changes"
+        onPress={() => {
+          setProfile((p) => ({ ...p, name, phone, email }));
+          close();
+        }}
+      />
+    </>
+  );
+}
+
+function TopupForm({ addToWallet, close }) {
+  const [amount, setAmount] = useState('500');
+  const presets = [200, 500, 1000, 2000];
+  return (
+    <>
+      <ModalHeader title="Top up wallet" close={close} />
+      <View style={styles.presetRow}>
+        {presets.map((p) => (
+          <Pressable
+            key={p}
+            onPress={() => setAmount(String(p))}
+            style={[
+              styles.presetChip,
+              Number(amount) === p && styles.presetChipActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.presetText,
+                Number(amount) === p && styles.presetTextActive,
+              ]}
+            >
+              Rs {p}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <FormField
+        label="Custom amount"
+        value={amount}
+        onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
+        keyboardType="number-pad"
+      />
+      <PrimaryButton
+        label={`Add Rs ${amount || 0}`}
+        onPress={() => {
+          const num = Number(amount);
+          if (num > 0) addToWallet(num);
+          close();
+        }}
+      />
+    </>
+  );
+}
+
+function EditAddressForm({ address, updateAddress, removeAddress, close }) {
+  const [value, setValue] = useState(address.address);
+  return (
+    <>
+      <ModalHeader
+        title={`Edit ${address.label}`}
+        close={close}
+      />
+      <FormField label="Address" value={value} onChangeText={setValue} />
+      <PrimaryButton
+        label="Save"
+        onPress={() => {
+          updateAddress(address.label, value);
+          close();
+        }}
+      />
+      <Pressable
+        style={styles.dangerBtn}
+        onPress={() => {
+          removeAddress(address.label);
+          close();
+        }}
+      >
+        <Text style={styles.dangerBtnText}>Remove place</Text>
+      </Pressable>
+    </>
+  );
+}
+
+function AddAddressForm({ addAddress, close }) {
+  const [label, setLabel] = useState('');
+  const [addr, setAddr] = useState('');
+  return (
+    <>
+      <ModalHeader title="Add a place" close={close} />
+      <FormField label="Label (e.g. Gym)" value={label} onChangeText={setLabel} />
+      <FormField label="Address" value={addr} onChangeText={setAddr} />
+      <PrimaryButton
+        label="Add place"
+        onPress={() => {
+          if (label.trim() && addr.trim()) {
+            addAddress(label.trim().toLowerCase(), addr.trim());
+            close();
+          }
+        }}
+      />
+    </>
+  );
+}
+
+function DocViewer({ doc, toggleDocument, close }) {
+  return (
+    <>
+      <ModalHeader title={doc.label} close={close} />
+      <View style={styles.docPreview}>
+        <Ionicons name="document-text" size={60} color={colors.primary} />
+        <Text style={styles.docPreviewText}>
+          {doc.uploaded
+            ? 'Document preview unavailable in demo mode.'
+            : 'No document uploaded yet.'}
+        </Text>
+        <View
+          style={[
+            styles.docStatusPill,
+            doc.uploaded ? styles.statusActive : styles.statusInactive,
+          ]}
+        >
+          <View
+            style={[
+              styles.statusDot,
+              doc.uploaded ? styles.statusDotActive : styles.statusDotInactive,
+            ]}
+          />
+          <Text style={styles.statusPillText}>
+            {doc.uploaded ? 'Verified' : 'Pending upload'}
+          </Text>
+        </View>
+      </View>
+      <PrimaryButton
+        label={doc.uploaded ? 'Replace document' : 'Upload document'}
+        onPress={() => {
+          toggleDocument(doc.key);
+          close();
+        }}
+      />
+    </>
+  );
+}
+
+function PasswordForm({ close }) {
+  const [oldPwd, setOldPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  return (
+    <>
+      <ModalHeader title="Change password" close={close} />
+      <FormField
+        label="Current password"
+        value={oldPwd}
+        onChangeText={setOldPwd}
+        secure
+      />
+      <FormField
+        label="New password"
+        value={newPwd}
+        onChangeText={setNewPwd}
+        secure
+      />
+      <FormField
+        label="Confirm new password"
+        value={confirm}
+        onChangeText={setConfirm}
+        secure
+      />
+      {error ? <Text style={styles.formError}>{error}</Text> : null}
+      <PrimaryButton
+        label="Update password"
+        onPress={() => {
+          if (newPwd.length < 8) {
+            setError('Password must be at least 8 characters.');
+            return;
+          }
+          if (newPwd !== confirm) {
+            setError('Passwords do not match.');
+            return;
+          }
+          close();
+        }}
+      />
+    </>
+  );
+}
+
+function TfaForm({ enabled, setEnabled, close }) {
+  return (
+    <>
+      <ModalHeader title="Two-factor authentication" close={close} />
+      <Text style={styles.formCopy}>
+        Add a second step when signing in. We'll send a code to your phone
+        whenever you log in from a new device.
+      </Text>
+      <View style={styles.tfaCard}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.tfaTitle}>SMS verification</Text>
+          <Text style={styles.tfaSub}>
+            {enabled ? 'Enabled · sent to your phone' : 'Currently off'}
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => setEnabled((v) => !v)}
+          style={[
+            styles.tfaToggle,
+            enabled ? styles.tfaToggleOn : styles.tfaToggleOff,
+          ]}
+        >
+          <Text style={styles.tfaToggleText}>{enabled ? 'On' : 'Off'}</Text>
+        </Pressable>
+      </View>
+      <PrimaryButton label="Done" onPress={close} />
+    </>
+  );
+}
+
+function LinkedDevices({ close }) {
+  const devices = [
+    { id: 'd1', name: 'iPhone 14', meta: 'Kathmandu · last seen now', current: true },
+    { id: 'd2', name: 'Pixel 8', meta: 'Lalitpur · 3 days ago' },
+    { id: 'd3', name: 'Chrome (Mac)', meta: 'Kathmandu · 1 week ago' },
+  ];
+  return (
+    <>
+      <ModalHeader title="Linked devices" close={close} />
+      {devices.map((d) => (
+        <View key={d.id} style={styles.deviceRow}>
+          <Ionicons name="phone-portrait" size={22} color={colors.text} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.deviceName}>
+              {d.name}
+              {d.current ? '  ·  This device' : ''}
+            </Text>
+            <Text style={styles.deviceMeta}>{d.meta}</Text>
+          </View>
+          {!d.current && (
+            <Pressable hitSlop={6}>
+              <Text style={styles.deviceRevoke}>Revoke</Text>
+            </Pressable>
+          )}
+        </View>
+      ))}
+    </>
+  );
+}
+
+function HelpCentre({ close }) {
+  const topics = [
+    'I was charged the wrong amount',
+    'My driver did not arrive',
+    'How does bidding work?',
+    'Update payment method',
+    'Subscription billing questions',
+  ];
+  return (
+    <>
+      <ModalHeader title="Help centre" close={close} />
+      {topics.map((t) => (
+        <Pressable key={t} style={styles.helpRow}>
+          <Text style={styles.helpText}>{t}</Text>
+          <ChevronIcon dir="right" size={14} color={colors.textFaint} />
+        </Pressable>
+      ))}
+    </>
+  );
+}
+
+function ContactSupport({ close }) {
+  return (
+    <>
+      <ModalHeader title="Contact support" close={close} />
+      <Text style={styles.formCopy}>
+        Our team usually replies within 30 minutes.
+      </Text>
+      <Pressable style={styles.contactRow}>
+        <Ionicons name="call" size={20} color={colors.primary} />
+        <Text style={styles.contactLabel}>Call 16600-12345</Text>
+      </Pressable>
+      <Pressable style={styles.contactRow}>
+        <Ionicons name="mail" size={20} color="#5c6fff" />
+        <Text style={styles.contactLabel}>support@shakti.com</Text>
+      </Pressable>
+      <Pressable style={styles.contactRow}>
+        <Ionicons name="chatbubbles" size={20} color="#c98a2a" />
+        <Text style={styles.contactLabel}>Start a live chat</Text>
+      </Pressable>
+      <PrimaryButton label="Close" onPress={close} />
+    </>
   );
 }
 
@@ -582,11 +1105,21 @@ function Row({ label, value, badge, badgeTone, last }) {
   );
 }
 
-function LinkRow({ label, last }) {
+function LinkRow({ label, last, onPress, badge }) {
   return (
-    <Pressable style={[styles.linkRow, last && styles.rowLast]}>
+    <Pressable
+      style={[styles.linkRow, last && styles.rowLast]}
+      onPress={onPress}
+    >
       <Text style={styles.linkLabel}>{label}</Text>
-      <View style={styles.chevron} />
+      <View style={styles.linkRight}>
+        {badge ? (
+          <View style={styles.linkBadge}>
+            <Text style={styles.linkBadgeText}>{badge}</Text>
+          </View>
+        ) : null}
+        <ChevronIcon dir="right" size={14} color={colors.textFaint} />
+      </View>
     </Pressable>
   );
 }
@@ -945,20 +1478,25 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   savedIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   savedLabel: { color: colors.text, fontSize: 14, fontWeight: '600' },
   savedAddress: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   savedAction: { color: colors.primary, fontSize: 13, fontWeight: '600' },
   addAddressBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
-  addAddressText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
+  addAddressText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
 
   toggleRow: {
     flexDirection: 'row',
@@ -1039,6 +1577,193 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   signOutText: { color: colors.danger, fontSize: 15, fontWeight: '700' },
+
+  linkRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  linkBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: colors.surfaceMuted,
+  },
+  linkBadgeText: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalDismiss: { flex: 1 },
+  modalSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 28,
+  },
+  modalHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#cdd2cd',
+    marginBottom: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  modalTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
+  modalClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  formField: { marginBottom: 12 },
+  formLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  formInput: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  formError: { color: colors.danger, fontSize: 12, marginTop: -4, marginBottom: 8 },
+  formCopy: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+
+  primaryBtn: {
+    marginTop: 6,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  primaryBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+  dangerBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.dangerSoft,
+    backgroundColor: colors.dangerSoft,
+  },
+  dangerBtnText: { color: colors.danger, fontSize: 14, fontWeight: '700' },
+
+  presetRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  presetChip: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  presetChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  presetText: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  presetTextActive: { color: colors.primaryDark },
+
+  docPreview: {
+    alignItems: 'center',
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceMuted,
+    marginBottom: 14,
+    gap: 10,
+  },
+  docPreviewText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  docStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginTop: 6,
+  },
+
+  tfaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceMuted,
+    marginBottom: 12,
+  },
+  tfaTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  tfaSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  tfaToggle: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  tfaToggleOn: { backgroundColor: colors.primary },
+  tfaToggleOff: { backgroundColor: colors.textFaint },
+  tfaToggleText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
+
+  deviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  deviceName: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  deviceMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  deviceRevoke: { color: colors.danger, fontSize: 12, fontWeight: '700' },
+
+  helpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  helpText: { color: colors.text, fontSize: 14, flex: 1 },
+
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceMuted,
+    marginBottom: 8,
+  },
+  contactLabel: { color: colors.text, fontSize: 14, fontWeight: '600' },
   footer: {
     color: colors.textFaint,
     fontSize: 12,

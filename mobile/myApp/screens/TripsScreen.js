@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import {
+  Platform,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -16,6 +18,11 @@ const FILTERS = [
   { id: 'completed', label: 'Completed' },
   { id: 'cancelled', label: 'Cancelled' },
 ];
+
+function countBy(id) {
+  if (id === 'all') return TRIPS.length;
+  return TRIPS.filter((t) => t.status === id).length;
+}
 
 const PAYMENT_LABELS = {
   cash: 'Cash',
@@ -52,15 +59,19 @@ export default function TripsScreen() {
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your trips</Text>
-        <Text style={styles.headerSub}>
-          {trips.length} {trips.length === 1 ? 'trip' : 'trips'}
-        </Text>
+        <View style={styles.headerSide} />
+        <Text style={styles.headerTitle}>Trips</Text>
+        <View style={styles.headerSide}>
+          <View style={styles.countPill}>
+            <Text style={styles.countPillText}>{trips.length}</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.filters}>
         {FILTERS.map((f) => {
           const active = f.id === filter;
+          const count = countBy(f.id);
           return (
             <Pressable
               key={f.id}
@@ -72,6 +83,21 @@ export default function TripsScreen() {
               >
                 {f.label}
               </Text>
+              <View
+                style={[
+                  styles.filterCount,
+                  active && styles.filterCountActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterCountText,
+                    active && styles.filterCountTextActive,
+                  ]}
+                >
+                  {count}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
@@ -95,17 +121,37 @@ export default function TripsScreen() {
             >
               <View style={styles.cardTop}>
                 <View style={styles.cardIcon}>
-                  <VehiclePhoto type={t.vehicleType} size={40} />
+                  <VehiclePhoto type={t.vehicleType} size={32} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.cardDate}>
-                      {formatDateTime(t.createdAt)}
-                    </Text>
-                    <Text style={styles.cardPrice}>
-                      Rs {t.finalPrice ?? t.offeredPrice}
+                  <Text style={styles.cardTitleSmall} numberOfLines={1}>
+                    {t.dropoff.address}
+                  </Text>
+                  <View style={styles.compactMetaRow}>
+                    <View
+                      style={[
+                        styles.statusDotSmall,
+                        isCancelled
+                          ? styles.statusDotCancelled
+                          : styles.statusDotOk,
+                      ]}
+                    />
+                    <Text style={styles.compactMeta}>
+                      {formatDateTime(t.createdAt)} ·{' '}
+                      {VEHICLE_LABELS[t.vehicleType]}
                     </Text>
                   </View>
+                </View>
+                <View style={styles.cardRightCompact}>
+                  <Text style={styles.cardPriceSmall}>
+                    Rs {t.finalPrice ?? t.offeredPrice}
+                  </Text>
+                  <ChevronIcon dir={open ? 'up' : 'down'} size={14} />
+                </View>
+              </View>
+
+              {open && (
+                <View style={styles.expandedRoute}>
                   <View style={styles.routeLine}>
                     <View style={styles.routePickupDot} />
                     <Text style={styles.cardMeta} numberOfLines={1}>
@@ -114,7 +160,7 @@ export default function TripsScreen() {
                   </View>
                   <View style={styles.routeLine}>
                     <View style={styles.routeDestSquare} />
-                    <Text style={styles.cardTitle} numberOfLines={1}>
+                    <Text style={styles.cardMeta} numberOfLines={1}>
                       {t.dropoff.address}
                     </Text>
                   </View>
@@ -144,10 +190,7 @@ export default function TripsScreen() {
                     </Text>
                   </View>
                 </View>
-                <View style={styles.cardChev}>
-                  <ChevronIcon dir={open ? 'up' : 'down'} />
-                </View>
-              </View>
+              )}
 
               {open && (
                 <View style={styles.cardDetails}>
@@ -205,37 +248,81 @@ function DetailRow({ label, value }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop:
+      Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 4 : 12,
+    paddingBottom: 12,
+  },
+  headerSide: {
+    minWidth: 40,
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   headerTitle: {
     color: colors.text,
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
-  headerSub: {
-    color: colors.textMuted,
-    fontSize: 13,
-    marginTop: 4,
+  countPill: {
+    minWidth: 26,
+    height: 22,
+    paddingHorizontal: 8,
+    borderRadius: 11,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countPillText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
   },
 
   filters: {
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 999,
     backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  filterChipActive: { backgroundColor: colors.primary },
-  filterText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
   filterTextActive: { color: '#ffffff' },
+  filterCount: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCountActive: { backgroundColor: 'rgba(255,255,255,0.22)' },
+  filterCountText: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  filterCountTextActive: { color: '#ffffff' },
 
   list: { paddingHorizontal: 20, paddingBottom: 28 },
   empty: {
@@ -249,20 +336,40 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  cardTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  cardTop: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   cardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardTitleSmall: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  compactMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  statusDotSmall: { width: 6, height: 6, borderRadius: 3 },
+  compactMeta: { color: colors.textMuted, fontSize: 11, flex: 1 },
+  cardRightCompact: { alignItems: 'flex-end', gap: 3 },
+  cardPriceSmall: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  expandedRoute: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    gap: 4,
   },
   cardHeaderRow: {
     flexDirection: 'row',

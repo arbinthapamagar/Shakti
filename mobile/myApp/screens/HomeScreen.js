@@ -8,6 +8,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -173,15 +174,44 @@ export default function HomeScreen({ onOpenProfile }) {
 
 function HomeView({ onOpenProfile, onTapSearch, onPickSaved }) {
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedService, setSelectedService] = useState('rickshaw');
   const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1200);
   };
-  const tiles = [
-    { id: 'rickshaw', label: 'Rickshaw', sub: 'Local & cheap', type: 'tuktuk' },
-    { id: 'scooter', label: 'EV Scooter', sub: 'Eco ride', type: 'scooter' },
-    { id: 'delivery', label: 'Delivery', sub: 'Send parcels', type: 'tuktuk_delivery' },
-    { id: 'subscribe', label: 'Subscribe', sub: 'Daily rides', type: 'bike' },
+  const services = [
+    {
+      id: 'rickshaw',
+      label: 'Rickshaw',
+      sub: 'Local & cheap',
+      type: 'tuktuk',
+      eta: '4 min',
+      price: 'from Rs 160',
+    },
+    {
+      id: 'scooter',
+      label: 'EV Scooter',
+      sub: 'Eco-friendly ride',
+      type: 'scooter',
+      eta: '2 min',
+      price: 'from Rs 90',
+    },
+    {
+      id: 'delivery',
+      label: 'Delivery',
+      sub: 'Parcels & goods',
+      type: 'tuktuk_delivery',
+      eta: '6 min',
+      price: 'from Rs 200',
+    },
+    {
+      id: 'subscribe',
+      label: 'Subscribe',
+      sub: 'Daily school / business',
+      type: 'bike',
+      eta: 'Plan',
+      price: 'Rs 7,500/mo',
+    },
   ];
 
   return (
@@ -225,21 +255,51 @@ function HomeView({ onOpenProfile, onTapSearch, onPickSaved }) {
           </View>
         </Pressable>
 
-        <View style={styles.tilesGrid}>
-          {tiles.map((t) => (
-            <Pressable key={t.id} style={styles.tile}>
-              <View style={styles.tileIcon}>
-                <VehiclePhoto type={t.type} size={44} />
-              </View>
-              <Text style={styles.tileLabel} numberOfLines={1}>
-                {t.label}
-              </Text>
-              <Text style={styles.tileSub} numberOfLines={1}>
-                {t.sub}
-              </Text>
-            </Pressable>
-          ))}
+        <Text style={styles.sectionLabel}>Choose a service</Text>
+        <View style={styles.serviceList}>
+          {services.map((s) => {
+            const selected = s.id === selectedService;
+            return (
+              <Pressable
+                key={s.id}
+                onPress={() => setSelectedService(s.id)}
+                style={[
+                  styles.serviceRow,
+                  selected && styles.serviceRowSelected,
+                ]}
+              >
+                <View style={styles.serviceArt}>
+                  <VehiclePhoto type={s.type} size={48} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.serviceLabel}>{s.label}</Text>
+                  <Text style={styles.serviceSub}>{s.sub}</Text>
+                </View>
+                <View style={styles.serviceRight}>
+                  <Text style={styles.servicePrice}>{s.price}</Text>
+                  <Text style={styles.serviceEta}>{s.eta}</Text>
+                </View>
+                <View
+                  style={[
+                    styles.selectDot,
+                    selected && styles.selectDotOn,
+                  ]}
+                >
+                  {selected && (
+                    <Ionicons name="checkmark" size={14} color="#ffffff" />
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
+
+        <Pressable style={styles.continueBtn} onPress={onTapSearch}>
+          <Text style={styles.continueBtnText}>
+            Continue with{' '}
+            {services.find((s) => s.id === selectedService)?.label}
+          </Text>
+        </Pressable>
 
         <View style={styles.savedSectionRow}>
           <Text style={styles.savedSectionTitle}>Saved places</Text>
@@ -259,7 +319,17 @@ function HomeView({ onOpenProfile, onTapSearch, onPickSaved }) {
               onPress={() => onPickSaved(s.address)}
             >
               <View style={styles.savedIcon}>
-                <PinIcon size={18} color={colors.primary} />
+                <Ionicons
+                  name={
+                    s.label === 'home'
+                      ? 'home'
+                      : s.label === 'work'
+                      ? 'briefcase'
+                      : 'location'
+                  }
+                  size={16}
+                  color={colors.primaryDark}
+                />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.savedLabel}>
@@ -292,6 +362,8 @@ function BrandLogo() {
 }
 
 function SearchSheet({ pickup, setPickup, destination, setDestination, onPick, onSubmit }) {
+  const [pinning, setPinning] = useState(null); // 'from' | 'to' | null
+
   return (
     <View style={[styles.sheet, styles.sheetTall]}>
       <View style={styles.handle} />
@@ -303,28 +375,60 @@ function SearchSheet({ pickup, setPickup, destination, setDestination, onPick, o
           <FlagIcon size={14} color={colors.text} />
         </View>
         <View style={{ flex: 1 }}>
-          <TextInput
-            value={pickup}
-            onChangeText={setPickup}
-            placeholder="Pickup"
-            placeholderTextColor={colors.textFaint}
-            style={styles.routeInput}
-          />
+          <View style={styles.routeField}>
+            <Text style={styles.routeFieldLabel}>From</Text>
+            <TextInput
+              value={pickup}
+              onChangeText={setPickup}
+              placeholder="Pickup location"
+              placeholderTextColor={colors.textFaint}
+              style={styles.routeInput}
+            />
+          </View>
           <View style={styles.routeDivider} />
-          <TextInput
-            value={destination}
-            onChangeText={setDestination}
-            placeholder="Where to?"
-            placeholderTextColor={colors.textFaint}
-            autoFocus
-            style={styles.routeInput}
-            returnKeyType="search"
-            onSubmitEditing={onSubmit}
-          />
+          <View style={styles.routeField}>
+            <Text style={styles.routeFieldLabel}>To</Text>
+            <TextInput
+              value={destination}
+              onChangeText={setDestination}
+              placeholder="Where are you going?"
+              placeholderTextColor={colors.textFaint}
+              autoFocus
+              style={styles.routeInput}
+              returnKeyType="search"
+              onSubmitEditing={onSubmit}
+            />
+          </View>
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 8 }}>
+      <View style={styles.routeActions}>
+        <Pressable
+          style={[styles.routeAction, pinning === 'from' && styles.routeActionOn]}
+          onPress={() => setPinning(pinning === 'from' ? null : 'from')}
+        >
+          <Ionicons name="locate" size={16} color={colors.primary} />
+          <Text style={styles.routeActionText}>Use current location</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.routeAction, pinning === 'to' && styles.routeActionOn]}
+          onPress={() => {
+            setPinning('to');
+            setDestination('Pinned location');
+            setTimeout(() => onSubmit(), 300);
+          }}
+        >
+          <Ionicons name="map" size={16} color="#5c6fff" />
+          <Text style={styles.routeActionText}>Set on map</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ marginTop: 8 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.suggestionsHeader}>Saved places</Text>
         {CURRENT_USER.savedAddresses.map((s) => (
           <Pressable
             key={s.label}
@@ -332,7 +436,17 @@ function SearchSheet({ pickup, setPickup, destination, setDestination, onPick, o
             onPress={() => onPick(s.address)}
           >
             <View style={styles.suggestionIcon}>
-              <View style={styles.suggestionIconCore} />
+              <Ionicons
+                name={
+                  s.label === 'home'
+                    ? 'home'
+                    : s.label === 'work'
+                    ? 'briefcase'
+                    : 'location'
+                }
+                size={16}
+                color={colors.primaryDark}
+              />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.suggestionTitle}>
@@ -344,13 +458,16 @@ function SearchSheet({ pickup, setPickup, destination, setDestination, onPick, o
             </View>
           </Pressable>
         ))}
+        <Text style={styles.suggestionsHeader}>Recent</Text>
         {RECENT_DESTINATIONS.map((r) => (
           <Pressable
             key={r.id}
             style={styles.suggestion}
             onPress={() => onPick(r.title)}
           >
-            <View style={styles.suggestionIconRound} />
+            <View style={styles.suggestionIcon}>
+              <Ionicons name="time" size={16} color={colors.textMuted} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.suggestionTitle}>{r.title}</Text>
               <Text style={styles.suggestionSub} numberOfLines={1}>
@@ -785,8 +902,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 20 : 8,
-    paddingBottom: 12,
+    paddingTop:
+      Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 4 : 4,
+    paddingBottom: 8,
     backgroundColor: '#ffffff',
   },
   avatarBtn: {
@@ -800,14 +918,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mapPreview: {
-    height: 200,
+    height: 140,
     overflow: 'hidden',
     backgroundColor: '#e8ece6',
   },
   homeBody: { flex: 1, backgroundColor: '#ffffff' },
   homeBodyContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 14,
     paddingBottom: 28,
   },
 
@@ -929,7 +1047,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 14,
   },
   brandBoltCircle: {
     width: 36,
@@ -1032,6 +1149,69 @@ const styles = StyleSheet.create({
   },
   searchLater: { color: colors.text, fontSize: 12, fontWeight: '700' },
 
+  sectionLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  serviceList: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+    backgroundColor: '#ffffff',
+  },
+  serviceRowSelected: {
+    backgroundColor: colors.primarySoft,
+  },
+  serviceArt: {
+    width: 56,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceLabel: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  serviceSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  serviceRight: { alignItems: 'flex-end' },
+  servicePrice: { color: colors.text, fontSize: 13, fontWeight: '800' },
+  serviceEta: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  selectDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  selectDotOn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  continueBtn: {
+    marginTop: 14,
+    paddingVertical: 16,
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  continueBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+
   tilesGrid: {
     flexDirection: 'row',
     gap: 6,
@@ -1121,8 +1301,47 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   vline: { width: 2, flex: 1, backgroundColor: '#c5cac3', marginVertical: 4 },
-  routeInput: { color: colors.text, fontSize: 16, paddingVertical: 8, padding: 0 },
-  routeDivider: { height: 1, backgroundColor: '#cdd2cd', marginVertical: 2 },
+  routeField: { paddingVertical: 4 },
+  routeFieldLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  routeInput: { color: colors.text, fontSize: 16, paddingVertical: 4, padding: 0 },
+  routeDivider: { height: 1, backgroundColor: '#cdd2cd', marginVertical: 4 },
+  routeActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  routeAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: '#f3f5f2',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  routeActionOn: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  routeActionText: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  suggestionsHeader: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginTop: 14,
+    marginBottom: 4,
+  },
 
   suggestion: {
     flexDirection: 'row',
