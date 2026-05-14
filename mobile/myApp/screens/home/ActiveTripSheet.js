@@ -1,0 +1,207 @@
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { CallIcon, ChatIcon, ShareIcon } from '../../components/Icons';
+import { Button, Sheet } from '../../components/ui';
+import { colors, radius, spacing, type } from '../../theme';
+import { PAYMENT_METHODS } from './constants';
+
+const STATUS_LABEL = {
+  arriving: 'Driver on the way',
+  started: 'On the trip',
+  completed: 'Trip complete',
+};
+
+function DetailRow({ label, value, bold, last }) {
+  return (
+    <View style={[styles.row, last && styles.rowLast]}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text
+        style={[styles.rowValue, bold && styles.rowValueBold]}
+        numberOfLines={1}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+export default function ActiveTripSheet({
+  driver,
+  bid,
+  destination,
+  payment,
+  tripStatus,
+  onComplete,
+  onCancel,
+}) {
+  const initials = driver.name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2);
+  const statusText = STATUS_LABEL[tripStatus] ?? STATUS_LABEL.arriving;
+  const paymentLabel =
+    PAYMENT_METHODS.find((p) => p.id === payment)?.label || payment;
+
+  return (
+    <Sheet tall>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <Text style={styles.kicker}>{statusText}</Text>
+        <Text style={styles.eta}>
+          {tripStatus === 'arriving' ? `${driver.eta} min` : '—'}
+        </Text>
+        <View style={styles.etaBar}>
+          <View
+            style={[
+              styles.etaBarFill,
+              { width: tripStatus === 'arriving' ? '40%' : '90%' },
+            ]}
+          />
+        </View>
+
+        <View style={styles.driverRow}>
+          <View style={styles.driverAvatar}>
+            <Text style={styles.driverInitials}>{initials}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.driverName}>{driver.name}</Text>
+            <Text style={styles.driverMeta}>
+              {driver.rating.toFixed(2)} · {driver.vehicleColor}{' '}
+              {driver.vehicleModel}
+            </Text>
+          </View>
+          <View style={styles.plate}>
+            <Text style={styles.plateText}>{driver.vehiclePlate}</Text>
+          </View>
+        </View>
+
+        <View style={styles.actions}>
+          <Pressable style={styles.actionBtn}>
+            <CallIcon size={16} color={colors.primary} />
+            <Text style={styles.actionText}>Call</Text>
+          </Pressable>
+          <Pressable style={styles.actionBtn}>
+            <ChatIcon size={16} color="#5c6fff" />
+            <Text style={styles.actionText}>Message</Text>
+          </Pressable>
+          <Pressable style={styles.actionBtn}>
+            <ShareIcon size={16} color={colors.text} />
+            <Text style={styles.actionText}>Share</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.detailList}>
+          <DetailRow label="Pickup" value="Current location" />
+          <DetailRow label="Drop-off" value={destination} />
+          <DetailRow label="Payment" value={paymentLabel} />
+          <DetailRow label="Agreed fare" value={`Rs ${bid.amount}`} bold last />
+        </View>
+
+        {tripStatus === 'started' ? (
+          <Button
+            label="Mark trip complete"
+            onPress={onComplete}
+            style={{ marginTop: spacing.md + 2 }}
+          />
+        ) : (
+          <Pressable style={styles.cancel} onPress={onCancel}>
+            <Text style={styles.cancelText}>Cancel ride</Text>
+          </Pressable>
+        )}
+      </ScrollView>
+    </Sheet>
+  );
+}
+
+const styles = StyleSheet.create({
+  kicker: { ...type.eyebrow, color: colors.textMuted, marginBottom: 4 },
+  eta: {
+    color: colors.text,
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  etaBar: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#eef1ee',
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+    overflow: 'hidden',
+  },
+  etaBarFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 3 },
+
+  driverRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md + 2,
+    paddingVertical: spacing.sm,
+  },
+  driverAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#f1f6f3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverInitials: { color: colors.primaryDark, fontSize: 18, fontWeight: '700' },
+  driverName: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  driverMeta: { color: colors.textMuted, fontSize: 13, marginTop: 3 },
+  plate: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.sm,
+    backgroundColor: '#f3f5f2',
+    borderRadius: radius.md - 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  plateText: { color: colors.text, fontSize: 12, fontWeight: '700' },
+
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md + 2,
+    marginBottom: spacing.lg,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: spacing.md + 1,
+    borderRadius: radius.pill,
+    backgroundColor: '#f3f5f2',
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionText: { color: colors.text, fontSize: 13, fontWeight: '700' },
+
+  detailList: { backgroundColor: colors.surface },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.md + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#cdd2cd',
+  },
+  rowLast: { borderBottomWidth: 0 },
+  rowLabel: { color: colors.textMuted, fontSize: 14 },
+  rowValue: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    maxWidth: '60%',
+  },
+  rowValueBold: { fontSize: 16, fontWeight: '800' },
+
+  cancel: { marginTop: spacing.md + 2, paddingVertical: spacing.md, alignItems: 'center' },
+  cancelText: { color: colors.danger, fontSize: 14, fontWeight: '600' },
+});

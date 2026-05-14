@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
 import TabBar from './components/TabBar';
-import HomeScreen from './screens/HomeScreen';
+import HomeScreen from './screens/home';
 import InboxScreen from './screens/InboxScreen';
 import LoginScreen from './screens/LoginScreen';
 import ProfileScreen from './screens/ProfileScreen';
