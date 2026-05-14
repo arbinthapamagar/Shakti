@@ -27,7 +27,9 @@ export default function OptionsSheet({
   const vehicle = VEHICLE_TYPES.find((v) => v.id === vehicleId);
   const suggested = vehicle?.baseFare ?? 0;
   const priceNum = Number(offeredPrice) || 0;
-  const canConfirm = priceNum >= MIN_FARE && destination.trim().length > 0;
+  const pickupReady = !!pickup && pickup.trim().length > 0;
+  const destReady = !!destination && destination.trim().length > 0;
+  const canConfirm = priceNum >= MIN_FARE && pickupReady && destReady;
 
   const selectVehicle = (id, baseFare) => {
     setVehicleId(id);
@@ -43,8 +45,14 @@ export default function OptionsSheet({
       >
         <View style={styles.routeStrip}>
           <PinIcon size={10} color={colors.primary} />
-          <Text style={styles.routeText} numberOfLines={1}>
-            {pickup}
+          <Text
+            style={[
+              styles.routeText,
+              !pickupReady && styles.routeTextMissing,
+            ]}
+            numberOfLines={1}
+          >
+            {pickupReady ? pickup : 'Set pickup location'}
           </Text>
           <Text style={styles.routeArrow}>→</Text>
           <FlagIcon size={10} color={colors.text} />
@@ -52,6 +60,12 @@ export default function OptionsSheet({
             {destination}
           </Text>
         </View>
+
+        {!pickupReady && (
+          <Text style={styles.warn}>
+            Pickup not detected — set it from the search screen to continue.
+          </Text>
+        )}
 
         <Text style={styles.sectionLabel}>Choose a ride</Text>
 
@@ -153,7 +167,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   routeText: { flex: 1, ...type.small, color: colors.text, fontWeight: '500' },
+  routeTextMissing: { color: colors.danger, fontStyle: 'italic' },
   routeArrow: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+  warn: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: spacing.sm,
+  },
 
   sectionLabel: {
     ...type.eyebrow,

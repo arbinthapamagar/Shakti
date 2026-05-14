@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -15,6 +16,11 @@ import { colors, radius, spacing, type } from '../../theme';
 
 const SAVED_ICON = { home: 'home', work: 'briefcase' };
 
+function caseInsensitiveIncludes(haystack, needle) {
+  if (!needle) return true;
+  return haystack.toLowerCase().includes(needle.toLowerCase());
+}
+
 export default function SearchSheet({
   pickup,
   setPickup,
@@ -25,6 +31,42 @@ export default function SearchSheet({
   onPickPickupOnMap,
   onPickDestOnMap,
 }) {
+  const [activeField, setActiveField] = useState('dest');
+  const destRef = useRef(null);
+
+  const query = activeField === 'pickup' ? pickup : destination;
+
+  const filteredSaved = useMemo(
+    () =>
+      CURRENT_USER.savedAddresses.filter(
+        (s) =>
+          caseInsensitiveIncludes(s.address, query) ||
+          caseInsensitiveIncludes(s.label, query),
+      ),
+    [query],
+  );
+  const filteredRecent = useMemo(
+    () =>
+      RECENT_DESTINATIONS.filter(
+        (r) =>
+          caseInsensitiveIncludes(r.title, query) ||
+          caseInsensitiveIncludes(r.subtitle, query),
+      ),
+    [query],
+  );
+
+  const pickValue = (value) => {
+    hapticPick();
+    if (activeField === 'pickup') {
+      setPickup(value);
+      // Hand the focus to the destination field so the user keeps flowing.
+      setActiveField('dest');
+      destRef.current?.focus();
+    } else {
+      onPick(value);
+    }
+  };
+
   return (
     <Sheet tall>
       <View style={styles.routeBox}>
@@ -34,29 +76,53 @@ export default function SearchSheet({
           <FlagIcon size={14} color={colors.text} />
         </View>
         <View style={{ flex: 1 }}>
-          <View style={styles.field}>
+          <View
+            style={[
+              styles.field,
+              activeField === 'pickup' && styles.fieldActive,
+            ]}
+          >
             <Text style={styles.fieldLabel}>From</Text>
-            <TextInput
-              value={pickup}
-              onChangeText={setPickup}
-              placeholder="Pickup location"
-              placeholderTextColor={colors.textFaint}
-              style={styles.input}
-            />
+            <View style={styles.fieldRow}>
+              <TextInput
+                value={pickup}
+                onChangeText={setPickup}
+                onFocus={() => setActiveField('pickup')}
+                placeholder="Pickup location"
+                placeholderTextColor={colors.textFaint}
+                style={styles.input}
+              />
+              {pickup ? (
+                <Pressable onPress={() => setPickup('')} hitSlop={6}>
+                  <Ionicons name="close-circle" size={16} color={colors.textFaint} />
+                </Pressable>
+              ) : null}
+            </View>
           </View>
           <View style={styles.divider} />
-          <View style={styles.field}>
+          <View
+            style={[styles.field, activeField === 'dest' && styles.fieldActive]}
+          >
             <Text style={styles.fieldLabel}>To</Text>
-            <TextInput
-              value={destination}
-              onChangeText={setDestination}
-              placeholder="Where are you going?"
-              placeholderTextColor={colors.textFaint}
-              autoFocus
-              style={styles.input}
-              returnKeyType="search"
-              onSubmitEditing={onSubmit}
-            />
+            <View style={styles.fieldRow}>
+              <TextInput
+                ref={destRef}
+                value={destination}
+                onChangeText={setDestination}
+                onFocus={() => setActiveField('dest')}
+                placeholder="Where are you going?"
+                placeholderTextColor={colors.textFaint}
+                autoFocus
+                style={styles.input}
+                returnKeyType="search"
+                onSubmitEditing={onSubmit}
+              />
+              {destination ? (
+                <Pressable onPress={() => setDestination('')} hitSlop={6}>
+                  <Ionicons name="close-circle" size={16} color={colors.textFaint} />
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         </View>
       </View>
@@ -89,55 +155,69 @@ export default function SearchSheet({
         style={{ marginTop: spacing.sm }}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.sectionHeader}>Saved places</Text>
-        {CURRENT_USER.savedAddresses.map((s) => (
-          <Pressable
-            key={s.label}
-            style={styles.suggestion}
-            onPress={() => {
-              hapticPick();
-              onPick(s.address);
-            }}
-          >
-            <View style={styles.suggestionIcon}>
-              <Ionicons
-                name={SAVED_ICON[s.label] || 'location'}
-                size={16}
-                color={colors.primaryDark}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.suggestionTitle}>
-                {s.label.charAt(0).toUpperCase() + s.label.slice(1)}
-              </Text>
-              <Text style={styles.suggestionSub} numberOfLines={1}>
-                {s.address}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
+        <Text style={styles.activeHint}>
+          Searching for{' '}
+          <Text style={styles.activeHintStrong}>
+            {activeField === 'pickup' ? 'pickup' : 'drop-off'}
+          </Text>
+          {query ? ` · "${query}"` : ''}
+        </Text>
 
-        <Text style={styles.sectionHeader}>Recent</Text>
-        {RECENT_DESTINATIONS.map((r) => (
-          <Pressable
-            key={r.id}
-            style={styles.suggestion}
-            onPress={() => {
-              hapticPick();
-              onPick(r.title);
-            }}
-          >
-            <View style={styles.suggestionIcon}>
-              <Ionicons name="time" size={16} color={colors.textMuted} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.suggestionTitle}>{r.title}</Text>
-              <Text style={styles.suggestionSub} numberOfLines={1}>
-                {r.subtitle}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
+        {filteredSaved.length > 0 && (
+          <>
+            <Text style={styles.sectionHeader}>Saved places</Text>
+            {filteredSaved.map((s) => (
+              <Pressable
+                key={s.label}
+                style={styles.suggestion}
+                onPress={() => pickValue(s.address)}
+              >
+                <View style={styles.suggestionIcon}>
+                  <Ionicons
+                    name={SAVED_ICON[s.label] || 'location'}
+                    size={16}
+                    color={colors.primaryDark}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.suggestionTitle}>
+                    {s.label.charAt(0).toUpperCase() + s.label.slice(1)}
+                  </Text>
+                  <Text style={styles.suggestionSub} numberOfLines={1}>
+                    {s.address}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </>
+        )}
+
+        {filteredRecent.length > 0 && (
+          <>
+            <Text style={styles.sectionHeader}>Recent</Text>
+            {filteredRecent.map((r) => (
+              <Pressable
+                key={r.id}
+                style={styles.suggestion}
+                onPress={() => pickValue(r.title)}
+              >
+                <View style={styles.suggestionIcon}>
+                  <Ionicons name="time" size={16} color={colors.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.suggestionTitle}>{r.title}</Text>
+                  <Text style={styles.suggestionSub} numberOfLines={1}>
+                    {r.subtitle}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </>
+        )}
+
+        {filteredSaved.length === 0 && filteredRecent.length === 0 && (
+          <Text style={styles.empty}>No matches. Try a different name.</Text>
+        )}
       </ScrollView>
     </Sheet>
   );
@@ -160,9 +240,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   vline: { width: 2, flex: 1, backgroundColor: '#c5cac3', marginVertical: 4 },
-  field: { paddingVertical: 4 },
+  field: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginHorizontal: -6,
+    borderRadius: 8,
+  },
+  fieldActive: { backgroundColor: '#ffffff' },
   fieldLabel: { ...type.eyebrow, color: colors.textMuted },
-  input: { color: colors.text, fontSize: 16, paddingVertical: 4 },
+  fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  input: { flex: 1, color: colors.text, fontSize: 16, paddingVertical: 4 },
   divider: { height: 1, backgroundColor: '#cdd2cd', marginVertical: 4 },
 
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md - 2 },
@@ -180,10 +267,18 @@ const styles = StyleSheet.create({
   },
   actionText: { ...type.small, color: colors.text, fontWeight: '700' },
 
+  activeHint: {
+    ...type.caption,
+    color: colors.textMuted,
+    marginTop: spacing.md + 2,
+    marginBottom: spacing.xs,
+  },
+  activeHintStrong: { color: colors.primaryDark, fontWeight: '800' },
+
   sectionHeader: {
     ...type.eyebrow,
     color: colors.textMuted,
-    marginTop: spacing.md + 2,
+    marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },
   suggestion: {
@@ -202,4 +297,11 @@ const styles = StyleSheet.create({
   },
   suggestionTitle: { color: colors.text, fontSize: 16, fontWeight: '600' },
   suggestionSub: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
+
+  empty: {
+    color: colors.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: spacing.lg,
+  },
 });
