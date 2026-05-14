@@ -41,8 +41,8 @@ export const VEHICLE_TYPES = [
   },
   {
     id: 'tuktuk',
-    name: 'Tuktuk',
-    short: 'TK',
+    name: 'Rickshaw',
+    short: 'RK',
     eta: 4,
     baseFare: 160,
     capacity: 3,
@@ -80,7 +80,7 @@ export const VEHICLE_TYPES = [
 export const VEHICLE_SHORT = {
   scooter: 'SC',
   bike: 'BK',
-  tuktuk: 'TK',
+  tuktuk: 'RK',
   tuktuk_delivery: 'DV',
   taxi: 'TX',
   comfort: 'CF',
@@ -90,7 +90,6 @@ export const PAYMENT_BADGES = {
   cash: { short: 'CSH', color: '#5b6b62' },
   esewa: { short: 'eS', color: '#2c8f4a' },
   khalti: { short: 'Kh', color: '#5c2d91' },
-  wallet: { short: 'WAL', color: '#1f7a4d' },
 };
 
 export const RECENT_DESTINATIONS = [

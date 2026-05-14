@@ -21,6 +21,7 @@ import {
   SearchIcon,
   ShareIcon,
   StarIcon,
+  VEHICLE_TILE_BG,
 } from '../components/Icons';
 import {
   BIDS,
@@ -35,7 +36,6 @@ const PAYMENT_METHODS = [
   { id: 'cash', label: 'Cash' },
   { id: 'esewa', label: 'eSewa' },
   { id: 'khalti', label: 'Khalti' },
-  { id: 'wallet', label: 'Wallet' },
 ];
 
 export default function HomeScreen({ onOpenProfile }) {
@@ -181,9 +181,8 @@ export default function HomeScreen({ onOpenProfile }) {
 
 function HomeSheet({ onTapSearch, onPickSaved }) {
   const tiles = [
-    { id: 'ride', label: 'Ride', sub: 'Bid your fare', type: 'taxi' },
     { id: 'delivery', label: 'Delivery', sub: 'Send parcels', type: 'tuktuk_delivery' },
-    { id: 'tuktuk', label: 'Tuktuk', sub: 'Local & cheap', type: 'tuktuk' },
+    { id: 'rickshaw', label: 'Rickshaw', sub: 'Local & cheap', type: 'tuktuk' },
     { id: 'subscribe', label: 'Subscribe', sub: 'Daily rides', type: 'bike' },
   ];
   return (
@@ -201,13 +200,10 @@ function HomeSheet({ onTapSearch, onPickSaved }) {
       </Pressable>
 
       <View style={styles.tilesGrid}>
-        {tiles.map((t, i) => (
-          <Pressable
-            key={t.id}
-            style={[styles.tile, i === 0 && styles.tileHighlight]}
-          >
+        {tiles.map((t) => (
+          <Pressable key={t.id} style={styles.tile}>
             <View style={styles.tileIcon}>
-              <VehiclePhoto type={t.type} size={56} />
+              <VehiclePhoto type={t.type} size={88} />
             </View>
             <Text style={styles.tileLabel}>{t.label}</Text>
             <Text style={styles.tileSub}>{t.sub}</Text>
@@ -369,10 +365,19 @@ function OptionsSheet({
                 setVehicleId(r.id);
                 if (!offeredPrice) setOfferedPrice(String(r.baseFare));
               }}
-              style={[styles.vehicleCard, selected && styles.vehicleCardSelected]}
+              style={[
+                styles.vehicleCard,
+                {
+                  backgroundColor: selected
+                    ? VEHICLE_TILE_BG[r.id] || colors.primarySoft
+                    : '#ffffff',
+                  borderColor: selected ? colors.primary : colors.border,
+                  borderWidth: selected ? 2 : 1,
+                },
+              ]}
             >
               <View style={styles.vehicleArt}>
-                <VehiclePhoto type={r.id} size={56} />
+                <VehiclePhoto type={r.id} size={84} />
               </View>
               <Text style={styles.vehicleName}>{r.name}</Text>
               <View style={styles.vehicleMetaRow}>
@@ -434,7 +439,7 @@ function OptionsSheet({
               style={[styles.paymentChip, selected && styles.paymentChipSelected]}
               onPress={() => setPayment(p.id)}
             >
-              <PaymentLogo id={p.id} size={20} />
+              <PaymentLogo id={p.id} size={26} />
               <Text
                 style={[
                   styles.paymentChipText,
@@ -926,15 +931,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderRadius: 18,
-    backgroundColor: '#f4f6f3',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: colors.border,
   },
-  tileHighlight: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+  tileIcon: {
+    height: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
-  tileIcon: { height: 56, justifyContent: 'center', marginBottom: 6 },
   tileLabel: { color: colors.text, fontSize: 15, fontWeight: '800' },
   tileSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
 
@@ -1061,23 +1067,15 @@ const styles = StyleSheet.create({
 
   vehicleRow: { gap: 10, paddingRight: 4 },
   vehicleCard: {
-    width: 132,
+    width: 148,
     padding: 14,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: '#ffffff',
-  },
-  vehicleCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-    borderWidth: 2,
   },
   vehicleArt: {
-    height: 56,
+    height: 84,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   vehicleMetaRow: {
     flexDirection: 'row',
@@ -1224,21 +1222,12 @@ const styles = StyleSheet.create({
   },
   bidAvatarBadge: {
     position: 'absolute',
-    bottom: -6,
+    bottom: -4,
     right: -8,
-    width: 28,
-    height: 22,
-    borderRadius: 6,
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: '#ffffff',
+    width: 26,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-    elevation: 2,
   },
   bidInitials: { color: colors.primaryDark, fontSize: 14, fontWeight: '800' },
   bidTopRow: {

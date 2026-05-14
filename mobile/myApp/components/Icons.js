@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 
 export const VEHICLE_META = {
   taxi: { name: 'taxi', color: '#f5b400', lib: 'mci' },
@@ -131,10 +131,76 @@ export function PackageIcon({ size = 28, color = '#7a4d20' }) {
   );
 }
 
+export const PAYMENT_BRAND = {
+  cash: { bg: '#1f7a4d', accent: '#e8f3ec', label: 'Cash', short: 'C' },
+  esewa: { bg: '#2c8f4a', accent: '#e0f4e6', label: 'eSewa', short: 'eS' },
+  khalti: { bg: '#5c2d91', accent: '#ede4f7', label: 'Khalti', short: 'Kh' },
+};
+
 export function PaymentBadge({ id, size = 22 }) {
   if (id === 'cash') return <CashIcon size={size} color="#1f7a4d" />;
-  if (id === 'wallet') return <WalletIcon size={size} color="#c98a2a" />;
   return <CardIcon size={size} color={id === 'khalti' ? '#5c2d91' : '#2c8f4a'} />;
+}
+
+// Premium chip: brand-colored rounded square with logotype-style text
+export function PaymentChip({ id, size = 44 }) {
+  const b = PAYMENT_BRAND[id] || PAYMENT_BRAND.cash;
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.28,
+        backgroundColor: b.bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: b.bg,
+        shadowOpacity: 0.25,
+        shadowOffset: { width: 0, height: 3 },
+        shadowRadius: 6,
+        elevation: 3,
+      }}
+    >
+      <Text
+        style={{
+          color: '#ffffff',
+          fontSize: size * 0.34,
+          fontWeight: '900',
+          letterSpacing: -0.5,
+        }}
+      >
+        {b.short}
+      </Text>
+    </View>
+  );
+}
+
+// Tile-style vehicle: large colored rounded square with the vehicle icon on top
+export const VEHICLE_TILE_BG = {
+  taxi: '#fff4d6',
+  comfort: '#dbe6f4',
+  bike: '#fde0e1',
+  scooter: '#d6efee',
+  tuktuk: '#fde9c8',
+  tuktuk_delivery: '#ecdcc8',
+};
+
+export function VehicleTile({ type, size = 64 }) {
+  const bg = VEHICLE_TILE_BG[type] || '#f3f5f2';
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.28,
+        backgroundColor: bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <VehicleIcon type={type} size={size * 0.7} />
+    </View>
+  );
 }
 
 // Generic round icon wrapper for use behind small icons

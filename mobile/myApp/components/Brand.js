@@ -1,12 +1,6 @@
 import { useState } from 'react';
 import { Image, View } from 'react-native';
-import {
-  CardIcon,
-  CashIcon,
-  PaymentBadge,
-  VehicleIcon,
-  WalletIcon,
-} from './Icons';
+import { PaymentChip, VehicleTile } from './Icons';
 
 // Drop your own brand logos / vehicle photos into these paths and they'll
 // show automatically. Until then, the colored vector icon is used as fallback.
@@ -27,9 +21,9 @@ import {
 // file exists.
 
 const PAYMENT_IMAGES = {
-  esewa: null, // require('../assets/payments/esewa.png')
-  khalti: null, // require('../assets/payments/khalti.png')
-  wallet: null, // require('../assets/payments/wallet.png')
+  esewa: require('../assets/payments/esewa.gif'),
+  khalti: require('../assets/payments/khalti.png'),
+  phonepe: null, // require('../assets/payments/phonepe.png')
   cash: null, // require('../assets/payments/cash.png')
 };
 
@@ -38,55 +32,64 @@ const VEHICLE_IMAGES = {
   comfort: null, // require('../assets/vehicles/comfort.png')
   bike: null, // require('../assets/vehicles/bike.png')
   scooter: null, // require('../assets/vehicles/scooter.png')
-  tuktuk: null, // require('../assets/vehicles/tuktuk.png')
+  tuktuk: require('../assets/vehicles/tuktuk.png'),
   tuktuk_delivery: null, // require('../assets/vehicles/delivery.png')
 };
 
-function ImageWithFallback({ source, size, fallback, rounded }) {
+function ImageWithFallback({ source, size, fallback, radius, plain }) {
   const [failed, setFailed] = useState(false);
   if (!source || failed) return fallback;
+  if (plain) {
+    return (
+      <Image
+        source={source}
+        onError={() => setFailed(true)}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
+    );
+  }
   return (
-    <Image
-      source={source}
-      onError={() => setFailed(true)}
+    <View
       style={{
         width: size,
         height: size,
-        borderRadius: rounded ? size / 2 : 6,
+        borderRadius: radius != null ? radius : size * 0.28,
+        backgroundColor: '#ffffff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#eceeec',
       }}
-      resizeMode="contain"
-    />
+    >
+      <Image
+        source={source}
+        onError={() => setFailed(true)}
+        style={{ width: size * 0.78, height: size * 0.78 }}
+        resizeMode="contain"
+      />
+    </View>
   );
 }
 
-export function PaymentLogo({ id, size = 24 }) {
+export function PaymentLogo({ id, size = 44 }) {
   return (
     <ImageWithFallback
       source={PAYMENT_IMAGES[id]}
       size={size}
-      fallback={<PaymentBadge id={id} size={size} />}
+      fallback={<PaymentChip id={id} size={size} />}
     />
   );
 }
 
-export function VehiclePhoto({ type, size = 56, rounded = false }) {
+export function VehiclePhoto({ type, size = 64 }) {
   return (
     <ImageWithFallback
       source={VEHICLE_IMAGES[type]}
       size={size}
-      rounded={rounded}
-      fallback={
-        <View
-          style={{
-            width: size,
-            height: size,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <VehicleIcon type={type} size={size * 0.75} />
-        </View>
-      }
+      plain
+      fallback={<VehicleTile type={type} size={size} />}
     />
   );
 }

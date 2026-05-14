@@ -80,7 +80,6 @@ const PAYMENT_LABELS = {
   cash: 'Cash',
   khalti: 'Khalti',
   esewa: 'eSewa',
-  wallet: 'Shakti wallet',
 };
 
 const GENDER_LABELS = { male: 'Male', female: 'Female', other: 'Other' };

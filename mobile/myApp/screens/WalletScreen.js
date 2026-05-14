@@ -20,7 +20,6 @@ const PAYMENT_LABELS = {
   cash: 'Cash',
   esewa: 'eSewa',
   khalti: 'Khalti',
-  wallet: 'Shakti wallet',
 };
 
 const TYPE_LABELS = {
@@ -109,9 +108,7 @@ export default function WalletScreen() {
             const preferred = CURRENT_USER.preferredPaymentMethod === id;
             return (
               <View key={id} style={styles.methodRow}>
-                <View style={styles.methodIcon}>
-                  <PaymentLogo id={id} size={26} />
-                </View>
+                <PaymentLogo id={id} size={44} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.methodLabel}>{label}</Text>
                   <Text style={styles.methodSub}>
@@ -301,14 +298,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
-  },
-  methodIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   methodLabel: { color: colors.text, fontSize: 14, fontWeight: '600' },
   methodSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },

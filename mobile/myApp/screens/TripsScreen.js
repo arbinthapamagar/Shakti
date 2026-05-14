@@ -21,14 +21,13 @@ const PAYMENT_LABELS = {
   cash: 'Cash',
   esewa: 'eSewa',
   khalti: 'Khalti',
-  wallet: 'Wallet',
 };
 
 const VEHICLE_LABELS = {
   scooter: 'Scooter',
   bike: 'Bike',
-  tuktuk: 'Tuktuk',
-  tuktuk_delivery: 'Tuktuk delivery',
+  tuktuk: 'Rickshaw',
+  tuktuk_delivery: 'Delivery',
   taxi: 'Taxi',
   comfort: 'Comfort',
 };
