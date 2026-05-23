@@ -2,28 +2,40 @@ import { Resend } from 'resend';
 import dotenv from 'dotenv';
 dotenv.config();
 
-if (!process.env.RESEND_API) {
-  console.log('Provide RESEND_API in side the .env file');
-}
+let resendClient = null;
 
-const resend = new Resend(process.env.RESEND_API);
+const getResendClient = () => {
+  if (!resendClient) {
+    if (!process.env.RESEND_API) {
+      console.warn('RESEND_API not set — emails will not be sent');
+      return null;
+    }
+    resendClient = new Resend(process.env.RESEND_API);
+  }
+  return resendClient;
+};
 
 const sendEmail = async ({ sendTo, subject, html }) => {
+  const resend = getResendClient();
+  if (!resend) return null;
+
   try {
     const { data, error } = await resend.emails.send({
-      from: 'VintunaStore <onboarding@resend.dev>',
+      from: 'Shakti <onboarding@resend.dev>',
       to: sendTo,
       subject: subject,
       html: html,
     });
 
     if (error) {
-      return console.error({ error });
+      console.error('Email error:', error);
+      return null;
     }
 
     return data;
   } catch (error) {
-    console.log(error);
+    console.error('sendEmail error:', error.message);
+    return null;
   }
 };
 
