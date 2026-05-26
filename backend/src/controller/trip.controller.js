@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Trip } from '../models/trip.model.js';
 import { Bid } from '../models/bid.model.js';
 import { Driver } from '../models/driver.model.js';
@@ -7,6 +8,15 @@ import { Notification } from '../models/notification.model.js';
 import { apiError } from '../utils/apiError.js';
 import { apiResponse } from '../utils/apiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+
+const DRIVER_VEHICLE_MAP = {
+    tuktuk: ['tuktuk', 'tuktuk_delivery'],
+    tuktuk_delivery: ['tuktuk_delivery', 'tuktuk'],
+    scooter: ['scooter', 'bike'],
+    bike: ['bike', 'scooter'],
+    taxi: ['taxi'],
+    comfort: ['comfort'],
+};
 
 const createTrip = asyncHandler(async (req, res) => {
     const { vehicleType, offeredPrice, paymentMethod, pickup, dropoff, distance, duration } = req.body;
@@ -44,10 +54,13 @@ const createTrip = asyncHandler(async (req, res) => {
         duration: duration || null,
     });
 
+    const compatibleDriverTypes = DRIVER_VEHICLE_MAP[vehicleType] || [vehicleType];
+
     const nearbyDrivers = await Driver.find({
         isOnline: true,
         isOnRide: false,
         status: 'approved',
+        vehicleType: { $in: compatibleDriverTypes },
         currentLocation: {
             $near: {
                 $geometry: { type: 'Point', coordinates: pickup.location.coordinates },
@@ -127,12 +140,14 @@ const updateTripStatusByDriver = asyncHandler(async (req, res) => {
     const { status } = req.body;
     if (!status) throw new apiError(400, 'Status is required');
 
-    const driver = await Driver.findOne({ userId: req.user._id });
-    if (!driver) throw new apiError(404, 'Driver profile not found');
-    if (driver.status !== 'approved') throw new apiError(403, 'Driver account not approved');
-
+    const driver = req.driver;
     const trip = await Trip.findOne({ _id: req.params.id, driverId: driver._id });
     if (!trip) throw new apiError(404, 'Trip not found');
+
+    // Idempotency guard — prevent double-processing if same status re-submitted
+    if (trip.status === status) {
+        return res.status(200).json(new apiResponse(200, trip, 'Trip status already set'));
+    }
 
     const validTransitions = {
         accepted: ['arriving'],
@@ -168,37 +183,66 @@ const updateTripStatusByDriver = asyncHandler(async (req, res) => {
     }
 
     if (status === 'completed') {
-        trip.completedAt = new Date();
-        driver.isOnRide = false;
-        driver.totalRides += 1;
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            trip.completedAt = new Date();
+            driver.isOnRide = false;
+            driver.totalRides += 1;
 
-        const finalPrice = trip.finalPrice || trip.offeredPrice;
-        const platformFee = parseFloat((finalPrice * 0.05).toFixed(2));
-        const driverEarning = parseFloat((finalPrice - platformFee).toFixed(2));
+            const finalPrice = trip.finalPrice || trip.offeredPrice;
+            const platformFee = parseFloat((finalPrice * 0.05).toFixed(2));
+            const driverEarning = parseFloat((finalPrice - platformFee).toFixed(2));
 
-        trip.platformFee = platformFee;
-        trip.paymentStatus = trip.paymentMethod === 'wallet' ? 'paid' : 'pending';
-        trip.finalPrice = finalPrice;
+            trip.platformFee = platformFee;
+            trip.paymentStatus = trip.paymentMethod === 'wallet' ? 'paid' : 'pending';
+            trip.finalPrice = finalPrice;
 
-        await Transaction.create([
-            { userId: trip.userId, tripId: trip._id, amount: finalPrice, type: 'trip_payment', method: trip.paymentMethod, status: 'completed' },
-            { driverId: driver._id, tripId: trip._id, amount: driverEarning, type: 'trip_earning', method: trip.paymentMethod, status: 'completed' },
-            { tripId: trip._id, amount: platformFee, type: 'platform_fee', method: trip.paymentMethod, status: 'completed' },
-        ]);
+            await Transaction.create(
+                [
+                    { userId: trip.userId, tripId: trip._id, amount: finalPrice, type: 'trip_payment', method: trip.paymentMethod, status: 'completed' },
+                    { driverId: driver._id, tripId: trip._id, amount: driverEarning, type: 'trip_earning', method: trip.paymentMethod, status: 'completed' },
+                    { tripId: trip._id, amount: platformFee, type: 'platform_fee', method: trip.paymentMethod, status: 'completed' },
+                ],
+                { session }
+            );
 
-        driver.earnings = parseFloat((driver.earnings + driverEarning).toFixed(2));
+            driver.earnings = parseFloat((driver.earnings + driverEarning).toFixed(2));
 
-        if (trip.paymentMethod === 'wallet') {
-            await User.findByIdAndUpdate(trip.userId, { $inc: { walletBalance: -finalPrice } });
+            if (trip.paymentMethod === 'wallet') {
+                const updated = await User.findOneAndUpdate(
+                    { _id: trip.userId, walletBalance: { $gte: finalPrice } },
+                    { $inc: { walletBalance: -finalPrice } },
+                    { new: true, session }
+                );
+                if (!updated) throw new apiError(400, 'Insufficient wallet balance to complete trip');
+            }
+
+            await Notification.create(
+                [
+                    {
+                        userId: trip.userId,
+                        title: 'Trip Completed',
+                        body: `Trip completed. Total: NPR ${finalPrice}`,
+                        type: 'trip_completed',
+                        refId: trip._id,
+                    },
+                ],
+                { session }
+            );
+
+            await driver.save({ session });
+            await trip.save({ session });
+
+            await session.commitTransaction();
+        } catch (err) {
+            await session.abortTransaction();
+            throw err;
+        } finally {
+            session.endSession();
         }
 
-        await Notification.create({
-            userId: trip.userId,
-            title: 'Trip Completed',
-            body: `Trip completed. Total: NPR ${finalPrice}`,
-            type: 'trip_completed',
-            refId: trip._id,
-        });
+        return res.status(200).json(new apiResponse(200, trip, 'Trip status updated'));
     }
 
     await driver.save();
@@ -210,14 +254,19 @@ const getNearbyDrivers = asyncHandler(async (req, res) => {
     const { longitude, latitude, vehicleType, maxDistance = 5000 } = req.query;
     if (!longitude || !latitude) throw new apiError(400, 'Longitude and latitude are required');
 
+    const lng = parseFloat(longitude);
+    const lat = parseFloat(latitude);
+    if (isNaN(lng) || isNaN(lat)) throw new apiError(400, 'Invalid coordinates');
+    const dist = Math.min(parseInt(maxDistance) || 5000, 50000); // cap at 50km
+
     const filter = {
         isOnline: true,
         isOnRide: false,
         status: 'approved',
         currentLocation: {
             $near: {
-                $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
-                $maxDistance: parseInt(maxDistance),
+                $geometry: { type: 'Point', coordinates: [lng, lat] },
+                $maxDistance: dist,
             },
         },
     };
