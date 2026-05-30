@@ -3,6 +3,7 @@ import { User } from '../models/user.model.js';
 import { Driver } from '../models/driver.model.js';
 import { Document } from '../models/doeument.model.js';
 import { Trip } from '../models/trip.model.js';
+import { Bid } from '../models/bid.model.js';
 import { Subscription } from '../models/subscription.model.js';
 import { Transaction } from '../models/transaction.model.js';
 import { SupportTicket } from '../models/supportTicket.model.js';
@@ -21,6 +22,24 @@ const cookieOptions = {
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+function getPeriodStart(period) {
+    const now = new Date();
+    if (period === 'week') {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 7);
+        return d;
+    } else if (period === 'year') {
+        const d = new Date(now);
+        d.setFullYear(d.getFullYear() - 1);
+        return d;
+    }
+    const d = new Date(now);
+    d.setDate(d.getDate() - 30);
+    return d;
+}
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -114,7 +133,6 @@ const createAdmin = asyncHandler(async (req, res) => {
         createdBy: req.admin._id,
     });
 
-    // Only grant permissions the creator themselves has
     if (permissions && typeof permissions === 'object') {
         const safePermissions = {};
         Object.keys(permissions).forEach(perm => {
@@ -183,6 +201,276 @@ const deleteAdmin = asyncHandler(async (req, res) => {
     return res.status(200).json(new apiResponse(200, {}, 'Admin deleted'));
 });
 
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+const getDashboardStats = asyncHandler(async (req, res) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [
+        totalUsers,
+        activeDrivers,
+        tripsToday,
+        revenueTodayResult,
+        pendingDocuments,
+        openTickets,
+        activeSubscriptions,
+        pendingDrivers,
+    ] = await Promise.all([
+        User.countDocuments(),
+        Driver.countDocuments({ status: 'approved', isOnline: true }),
+        Trip.countDocuments({ createdAt: { $gte: today } }),
+        Transaction.aggregate([
+            { $match: { type: 'platform_fee', status: 'completed', createdAt: { $gte: today } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+        Document.countDocuments({ status: 'pending' }),
+        SupportTicket.countDocuments({ status: { $in: ['open', 'in_progress'] } }),
+        Subscription.countDocuments({ status: 'active' }),
+        Driver.countDocuments({ status: 'pending' }),
+    ]);
+
+    return res.status(200).json(new apiResponse(200, {
+        totalUsers,
+        activeDrivers,
+        tripsToday,
+        revenueToday: revenueTodayResult[0]?.total || 0,
+        pendingDocuments,
+        openTickets,
+        activeSubscriptions,
+        pendingDrivers,
+    }, 'Dashboard stats fetched'));
+});
+
+const getDashboardRecentTrips = asyncHandler(async (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 20);
+
+    const trips = await Trip.find()
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .populate('userId', 'name phone')
+        .populate({ path: 'driverId', populate: { path: 'userId', select: 'name' } });
+
+    const formatted = trips.map(t => ({
+        _id: t._id,
+        riderName: t.userId?.name,
+        driverName: t.driverId?.userId?.name || null,
+        vehicleType: t.vehicleType,
+        status: t.status,
+        finalPrice: t.finalPrice,
+        offeredPrice: t.offeredPrice,
+        createdAt: t.createdAt,
+    }));
+
+    return res.status(200).json(new apiResponse(200, formatted, 'Recent trips fetched'));
+});
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+const getAnalyticsOverview = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.viewAnalytics) throw new apiError(403, 'Insufficient permissions');
+
+    const { period = 'month' } = req.query;
+    const startDate = getPeriodStart(period);
+
+    const [
+        totalTrips,
+        completedTrips,
+        cancelledTrips,
+        newUsers,
+        activeUsers,
+        activeDrivers,
+        revenueResult,
+    ] = await Promise.all([
+        Trip.countDocuments({ createdAt: { $gte: startDate } }),
+        Trip.countDocuments({ status: 'completed', createdAt: { $gte: startDate } }),
+        Trip.countDocuments({ status: 'cancelled', createdAt: { $gte: startDate } }),
+        User.countDocuments({ createdAt: { $gte: startDate } }),
+        User.countDocuments({ accountStatus: 'active' }),
+        Driver.countDocuments({ status: 'approved' }),
+        Transaction.aggregate([
+            { $match: { type: 'platform_fee', status: 'completed', createdAt: { $gte: startDate } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+    ]);
+
+    return res.status(200).json(new apiResponse(200, {
+        totalTrips,
+        completedTrips,
+        cancelledTrips,
+        newUsers,
+        activeUsers,
+        activeDrivers,
+        totalRevenue: revenueResult[0]?.total || 0,
+    }, 'Analytics overview fetched'));
+});
+
+const getAnalyticsTrips = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.viewAnalytics) throw new apiError(403, 'Insufficient permissions');
+
+    const { period = 'month' } = req.query;
+    const startDate = getPeriodStart(period);
+    const groupByMonth = period === 'year';
+
+    const groupId = groupByMonth
+        ? { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }
+        : { year: { $year: '$createdAt' }, month: { $month: '$createdAt' }, day: { $dayOfMonth: '$createdAt' } };
+
+    const [tripsData, revenueData] = await Promise.all([
+        Trip.aggregate([
+            { $match: { createdAt: { $gte: startDate } } },
+            {
+                $group: {
+                    _id: groupId,
+                    trips: { $sum: 1 },
+                    completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+                    cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
+                },
+            },
+            { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
+        ]),
+        Transaction.aggregate([
+            { $match: { type: 'platform_fee', status: 'completed', createdAt: { $gte: startDate } } },
+            {
+                $group: {
+                    _id: groupByMonth
+                        ? { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }
+                        : { year: { $year: '$createdAt' }, month: { $month: '$createdAt' }, day: { $dayOfMonth: '$createdAt' } },
+                    revenue: { $sum: '$amount' },
+                },
+            },
+            { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
+        ]),
+    ]);
+
+    const revenueMap = new Map();
+    revenueData.forEach(item => {
+        const key = groupByMonth
+            ? `${item._id.year}-${item._id.month}`
+            : `${item._id.year}-${item._id.month}-${item._id.day}`;
+        revenueMap.set(key, item.revenue);
+    });
+
+    const formatted = tripsData.map(item => {
+        const key = groupByMonth
+            ? `${item._id.year}-${item._id.month}`
+            : `${item._id.year}-${item._id.month}-${item._id.day}`;
+        const label = groupByMonth
+            ? MONTH_NAMES[item._id.month - 1]
+            : `${item._id.day}/${item._id.month}`;
+        return {
+            date: label,
+            trips: item.trips,
+            completed: item.completed,
+            cancelled: item.cancelled,
+            revenue: revenueMap.get(key) || 0,
+        };
+    });
+
+    return res.status(200).json(new apiResponse(200, formatted, 'Trips analytics fetched'));
+});
+
+const getAnalyticsUsers = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.viewAnalytics) throw new apiError(403, 'Insufficient permissions');
+
+    const { period = 'month' } = req.query;
+    const startDate = getPeriodStart(period);
+    const groupByMonth = period === 'year';
+
+    const groupId = groupByMonth
+        ? { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }
+        : { year: { $year: '$createdAt' }, month: { $month: '$createdAt' }, day: { $dayOfMonth: '$createdAt' } };
+
+    const [usersData, driversData] = await Promise.all([
+        User.aggregate([
+            { $match: { createdAt: { $gte: startDate } } },
+            { $group: { _id: groupId, users: { $sum: 1 } } },
+            { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
+        ]),
+        Driver.aggregate([
+            { $match: { createdAt: { $gte: startDate } } },
+            { $group: { _id: groupId, drivers: { $sum: 1 } } },
+            { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
+        ]),
+    ]);
+
+    const driversMap = new Map();
+    driversData.forEach(item => {
+        const key = groupByMonth
+            ? `${item._id.year}-${item._id.month}`
+            : `${item._id.year}-${item._id.month}-${item._id.day}`;
+        driversMap.set(key, item.drivers);
+    });
+
+    const formatted = usersData.map(item => {
+        const key = groupByMonth
+            ? `${item._id.year}-${item._id.month}`
+            : `${item._id.year}-${item._id.month}-${item._id.day}`;
+        const label = groupByMonth
+            ? MONTH_NAMES[item._id.month - 1]
+            : `${item._id.day}/${item._id.month}`;
+        return {
+            date: label,
+            users: item.users,
+            drivers: driversMap.get(key) || 0,
+        };
+    });
+
+    return res.status(200).json(new apiResponse(200, formatted, 'Users analytics fetched'));
+});
+
+const getAnalyticsTopDrivers = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.viewAnalytics) throw new apiError(403, 'Insufficient permissions');
+
+    const drivers = await Driver.find({ status: 'approved' })
+        .sort({ totalRides: -1, rating: -1 })
+        .limit(10)
+        .populate('userId', 'name phone avatarUrl');
+
+    const formatted = drivers.map(d => ({
+        _id: d._id,
+        name: d.userId?.name || 'Unknown',
+        phone: d.userId?.phone,
+        avatarUrl: d.userId?.avatarUrl,
+        vehicleType: d.vehicleType,
+        vehiclePlate: d.vehiclePlate,
+        rides: d.totalRides,
+        rating: d.rating,
+        earnings: d.earnings,
+    }));
+
+    return res.status(200).json(new apiResponse(200, formatted, 'Top drivers fetched'));
+});
+
+const getAnalyticsVehicleDistribution = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.viewAnalytics) throw new apiError(403, 'Insufficient permissions');
+
+    const { period = 'month' } = req.query;
+    const startDate = getPeriodStart(period);
+
+    const data = await Trip.aggregate([
+        { $match: { createdAt: { $gte: startDate } } },
+        { $group: { _id: '$vehicleType', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+    ]);
+
+    const total = data.reduce((sum, item) => sum + item.count, 0);
+
+    const VEHICLE_COLORS = {
+        bike: '#6366f1', tuktuk: '#f59e0b', taxi: '#10b981',
+        scooter: '#8b5cf6', comfort: '#ec4899', tuktuk_delivery: '#3b82f6',
+    };
+
+    const formatted = data.map(item => ({
+        name: item._id,
+        value: total > 0 ? Math.round((item.count / total) * 100) : 0,
+        count: item.count,
+        color: VEHICLE_COLORS[item._id] || '#9ca3af',
+    }));
+
+    return res.status(200).json(new apiResponse(200, formatted, 'Vehicle distribution fetched'));
+});
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 const getUsers = asyncHandler(async (req, res) => {
@@ -229,15 +517,63 @@ const getUserById = asyncHandler(async (req, res) => {
 
 const updateUserStatus = asyncHandler(async (req, res) => {
     if (!req.admin.permissions.manageUsers) throw new apiError(403, 'Insufficient permissions');
-    const { status } = req.body;
+    const { status, accountStatus } = req.body;
+    const newStatus = accountStatus || status;
     const validStatuses = ['active', 'suspended', 'banned'];
-    if (!validStatuses.includes(status)) throw new apiError(400, `Status must be one of: ${validStatuses.join(', ')}`);
+    if (!validStatuses.includes(newStatus)) throw new apiError(400, `Status must be one of: ${validStatuses.join(', ')}`);
 
-    const user = await User.findByIdAndUpdate(req.params.id, { accountStatus: status }, { new: true })
+    const user = await User.findByIdAndUpdate(req.params.id, { accountStatus: newStatus }, { new: true })
         .select('-password -refreshToken -otp');
     if (!user) throw new apiError(404, 'User not found');
 
-    return res.status(200).json(new apiResponse(200, user, `User status updated to ${status}`));
+    return res.status(200).json(new apiResponse(200, user, `User status updated to ${newStatus}`));
+});
+
+const getUserTrips = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageUsers) throw new apiError(403, 'Insufficient permissions');
+
+    const { page = 1, limit = 20 } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 20, 50);
+    const skip = (parseInt(page) - 1) * limitNum;
+
+    const [trips, total] = await Promise.all([
+        Trip.find({ userId: req.params.id })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .populate('driverId', 'vehicleType vehiclePlate'),
+        Trip.countDocuments({ userId: req.params.id }),
+    ]);
+
+    return res.status(200).json(
+        new apiResponse(200, {
+            trips,
+            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
+        }, 'User trips fetched')
+    );
+});
+
+const getUserTransactions = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageUsers) throw new apiError(403, 'Insufficient permissions');
+
+    const { page = 1, limit = 20 } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 20, 50);
+    const skip = (parseInt(page) - 1) * limitNum;
+
+    const [transactions, total] = await Promise.all([
+        Transaction.find({ userId: req.params.id })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum),
+        Transaction.countDocuments({ userId: req.params.id }),
+    ]);
+
+    return res.status(200).json(
+        new apiResponse(200, {
+            transactions,
+            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
+        }, 'User transactions fetched')
+    );
 });
 
 // ─── Drivers ──────────────────────────────────────────────────────────────────
@@ -245,12 +581,13 @@ const updateUserStatus = asyncHandler(async (req, res) => {
 const getDrivers = asyncHandler(async (req, res) => {
     if (!req.admin.permissions.manageDrivers) throw new apiError(403, 'Insufficient permissions');
 
-    const { page = 1, limit = 20, status, search } = req.query;
+    const { page = 1, limit = 20, status, search, vehicleType } = req.query;
     const limitNum = Math.min(parseInt(limit) || 20, 100);
     const skip = (parseInt(page) - 1) * limitNum;
 
     const filter = {};
     if (status) filter.status = status;
+    if (vehicleType) filter.vehicleType = vehicleType;
 
     let query = Driver.find(filter)
         .sort({ createdAt: -1 })
@@ -309,17 +646,101 @@ const updateDriverStatus = asyncHandler(async (req, res) => {
     return res.status(200).json(new apiResponse(200, driver, `Driver status updated to ${status}`));
 });
 
-// ─── Documents ────────────────────────────────────────────────────────────────
+const verifyDriver = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageDrivers) throw new apiError(403, 'Insufficient permissions');
 
-const getPendingDocuments = asyncHandler(async (req, res) => {
-    if (!req.admin.permissions.verifyDocuments) throw new apiError(403, 'Insufficient permissions');
+    const driver = await Driver.findByIdAndUpdate(
+        req.params.id,
+        { isVerified: true, status: 'approved' },
+        { new: true }
+    ).populate('userId', 'name phone');
+    if (!driver) throw new apiError(404, 'Driver not found');
+
+    await Notification.create({
+        userId: driver.userId._id,
+        title: 'Account Verified',
+        body: 'Your driver account has been verified and approved.',
+        type: 'account_approved',
+        refId: driver._id,
+    });
+
+    return res.status(200).json(new apiResponse(200, driver, 'Driver verified'));
+});
+
+const getDriverDocuments = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageDrivers) throw new apiError(403, 'Insufficient permissions');
+
+    const documents = await Document.find({ driverId: req.params.id }).sort({ createdAt: -1 });
+    return res.status(200).json(new apiResponse(200, documents, 'Driver documents fetched'));
+});
+
+const getDriverTrips = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageDrivers) throw new apiError(403, 'Insufficient permissions');
 
     const { page = 1, limit = 20 } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 20, 50);
+    const skip = (parseInt(page) - 1) * limitNum;
+
+    const driver = await Driver.findById(req.params.id);
+    if (!driver) throw new apiError(404, 'Driver not found');
+
+    const [trips, total] = await Promise.all([
+        Trip.find({ driverId: req.params.id })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .populate('userId', 'name phone'),
+        Trip.countDocuments({ driverId: req.params.id }),
+    ]);
+
+    return res.status(200).json(
+        new apiResponse(200, {
+            trips,
+            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
+        }, 'Driver trips fetched')
+    );
+});
+
+const getDriverEarnings = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageDrivers) throw new apiError(403, 'Insufficient permissions');
+
+    const driver = await Driver.findById(req.params.id);
+    if (!driver) throw new apiError(404, 'Driver not found');
+
+    const [transactions, completedTrips, earningsResult] = await Promise.all([
+        Transaction.find({ driverId: req.params.id, type: 'trip_earning', status: 'completed' })
+            .sort({ createdAt: -1 })
+            .limit(20),
+        Trip.countDocuments({ driverId: req.params.id, status: 'completed' }),
+        Transaction.aggregate([
+            { $match: { driverId: driver._id, type: 'trip_earning', status: 'completed' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+    ]);
+
+    return res.status(200).json(new apiResponse(200, {
+        totalEarnings: driver.earnings,
+        totalRides: driver.totalRides,
+        completedTrips,
+        recentTransactions: transactions,
+        calculatedEarnings: earningsResult[0]?.total || 0,
+    }, 'Driver earnings fetched'));
+});
+
+// ─── Documents ────────────────────────────────────────────────────────────────
+
+const getAllDocuments = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.verifyDocuments) throw new apiError(403, 'Insufficient permissions');
+
+    const { page = 1, limit = 20, status } = req.query;
     const limitNum = Math.min(parseInt(limit) || 20, 100);
     const skip = (parseInt(page) - 1) * limitNum;
 
+    const filter = {};
+    if (status) filter.status = status;
+
     const [documents, total] = await Promise.all([
-        Document.find({ status: 'pending' })
+        Document.find(filter)
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limitNum)
@@ -328,14 +749,14 @@ const getPendingDocuments = asyncHandler(async (req, res) => {
                 select: 'vehicleType vehiclePlate userId',
                 populate: { path: 'userId', select: 'name phone' },
             }),
-        Document.countDocuments({ status: 'pending' }),
+        Document.countDocuments(filter),
     ]);
 
     return res.status(200).json(
         new apiResponse(200, {
             documents,
             pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Pending documents fetched')
+        }, 'Documents fetched')
     );
 });
 
@@ -363,11 +784,12 @@ const verifyDocument = asyncHandler(async (req, res) => {
 
 const rejectDocument = asyncHandler(async (req, res) => {
     if (!req.admin.permissions.verifyDocuments) throw new apiError(403, 'Insufficient permissions');
-    const { reason } = req.body;
+    const { reason, rejectionReason } = req.body;
+    const rejectReason = rejectionReason || reason;
 
     const document = await Document.findByIdAndUpdate(
         req.params.id,
-        { status: 'rejected', verifiedBy: req.admin._id, verifiedAt: new Date(), rejectionReason: reason || null },
+        { status: 'rejected', verifiedBy: req.admin._id, verifiedAt: new Date(), rejectionReason: rejectReason || null },
         { new: true }
     ).populate({ path: 'driverId', populate: { path: 'userId', select: 'name _id' } });
 
@@ -376,7 +798,7 @@ const rejectDocument = asyncHandler(async (req, res) => {
     await Notification.create({
         userId: document.driverId.userId._id,
         title: 'Document Rejected',
-        body: `Your ${document.type.replace(/_/g, ' ')} was rejected. ${reason ? `Reason: ${reason}` : ''}`,
+        body: `Your ${document.type.replace(/_/g, ' ')} was rejected. ${rejectReason ? `Reason: ${rejectReason}` : ''}`,
         type: 'document_rejected',
         refId: document._id,
     });
@@ -389,13 +811,14 @@ const rejectDocument = asyncHandler(async (req, res) => {
 const getTrips = asyncHandler(async (req, res) => {
     if (!req.admin.permissions.manageTrips) throw new apiError(403, 'Insufficient permissions');
 
-    const { page = 1, limit = 20, status, vehicleType } = req.query;
+    const { page = 1, limit = 20, status, vehicleType, search, paymentMethod } = req.query;
     const limitNum = Math.min(parseInt(limit) || 20, 100);
     const skip = (parseInt(page) - 1) * limitNum;
 
     const filter = {};
     if (status) filter.status = status;
     if (vehicleType) filter.vehicleType = vehicleType;
+    if (paymentMethod) filter.paymentMethod = paymentMethod;
 
     const [trips, total] = await Promise.all([
         Trip.find(filter)
@@ -425,44 +848,188 @@ const getTripByIdAdmin = asyncHandler(async (req, res) => {
     return res.status(200).json(new apiResponse(200, trip, 'Trip fetched'));
 });
 
-// ─── Analytics ────────────────────────────────────────────────────────────────
+const getTripBids = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageTrips) throw new apiError(403, 'Insufficient permissions');
 
-const getAnalytics = asyncHandler(async (req, res) => {
-    if (!req.admin.permissions.viewAnalytics) throw new apiError(403, 'Insufficient permissions');
+    const bids = await Bid.find({ tripId: req.params.id })
+        .populate({ path: 'driverId', select: 'vehicleType vehiclePlate rating', populate: { path: 'userId', select: 'name phone' } })
+        .sort({ createdAt: -1 });
 
-    const [
-        totalUsers, activeUsers,
-        totalDrivers, approvedDrivers, pendingDrivers,
-        totalTrips, completedTrips, pendingTrips, cancelledTrips,
-        totalSubscriptions, activeSubscriptions,
-        revenueResult,
-    ] = await Promise.all([
-        User.countDocuments(),
-        User.countDocuments({ accountStatus: 'active' }),
-        Driver.countDocuments(),
-        Driver.countDocuments({ status: 'approved' }),
-        Driver.countDocuments({ status: 'pending' }),
-        Trip.countDocuments(),
-        Trip.countDocuments({ status: 'completed' }),
-        Trip.countDocuments({ status: 'pending' }),
-        Trip.countDocuments({ status: 'cancelled' }),
-        Subscription.countDocuments(),
-        Subscription.countDocuments({ status: 'active' }),
-        Transaction.aggregate([
-            { $match: { type: 'platform_fee', status: 'completed' } },
-            { $group: { _id: null, total: { $sum: '$amount' } } },
-        ]),
+    return res.status(200).json(new apiResponse(200, bids, 'Trip bids fetched'));
+});
+
+const cancelTripAdmin = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageTrips) throw new apiError(403, 'Insufficient permissions');
+
+    const { reason } = req.body;
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) throw new apiError(404, 'Trip not found');
+    if (['completed', 'cancelled'].includes(trip.status)) {
+        throw new apiError(400, `Cannot cancel a trip with status: ${trip.status}`);
+    }
+
+    trip.status = 'cancelled';
+    trip.cancelledBy = 'system';
+    trip.cancelReason = reason || 'Cancelled by admin';
+    trip.cancelledAt = new Date();
+    await trip.save();
+
+    if (trip.userId) {
+        await Notification.create({
+            userId: trip.userId,
+            title: 'Trip Cancelled',
+            body: reason || 'Your trip has been cancelled by admin.',
+            type: 'trip_cancelled',
+            refId: trip._id,
+        });
+    }
+
+    return res.status(200).json(new apiResponse(200, trip, 'Trip cancelled'));
+});
+
+// ─── Transactions ─────────────────────────────────────────────────────────────
+
+const getTransactions = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.managePayments) throw new apiError(403, 'Insufficient permissions');
+
+    const { page = 1, limit = 20, status, type, method } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 20, 100);
+    const skip = (parseInt(page) - 1) * limitNum;
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (type) filter.type = type;
+    if (method) filter.method = method;
+
+    const [transactions, total] = await Promise.all([
+        Transaction.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .populate('userId', 'name phone')
+            .populate({ path: 'driverId', select: 'vehicleType', populate: { path: 'userId', select: 'name phone' } })
+            .populate('tripId', 'vehicleType pickup dropoff'),
+        Transaction.countDocuments(filter),
     ]);
 
     return res.status(200).json(
         new apiResponse(200, {
-            users: { total: totalUsers, active: activeUsers },
-            drivers: { total: totalDrivers, approved: approvedDrivers, pending: pendingDrivers },
-            trips: { total: totalTrips, completed: completedTrips, pending: pendingTrips, cancelled: cancelledTrips },
-            subscriptions: { total: totalSubscriptions, active: activeSubscriptions },
-            revenue: { platformFees: revenueResult[0]?.total || 0 },
-        }, 'Analytics fetched')
+            transactions,
+            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
+        }, 'Transactions fetched')
     );
+});
+
+const getTransactionById = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.managePayments) throw new apiError(403, 'Insufficient permissions');
+
+    const transaction = await Transaction.findById(req.params.id)
+        .populate('userId', 'name phone')
+        .populate({ path: 'driverId', populate: { path: 'userId', select: 'name phone' } })
+        .populate('tripId');
+    if (!transaction) throw new apiError(404, 'Transaction not found');
+    return res.status(200).json(new apiResponse(200, transaction, 'Transaction fetched'));
+});
+
+const getTransactionSummary = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.managePayments) throw new apiError(403, 'Insufficient permissions');
+
+    const [totalRevenue, pendingAmount, totalRefunds, methodBreakdown] = await Promise.all([
+        Transaction.aggregate([
+            { $match: { type: 'platform_fee', status: 'completed' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+        Transaction.aggregate([
+            { $match: { status: 'pending' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+        Transaction.aggregate([
+            { $match: { type: 'refund', status: 'completed' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+        Transaction.aggregate([
+            { $match: { status: 'completed' } },
+            { $group: { _id: '$method', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+        ]),
+    ]);
+
+    return res.status(200).json(new apiResponse(200, {
+        totalRevenue: totalRevenue[0]?.total || 0,
+        pendingAmount: pendingAmount[0]?.total || 0,
+        totalRefunds: totalRefunds[0]?.total || 0,
+        methodBreakdown,
+    }, 'Transaction summary fetched'));
+});
+
+// ─── Subscriptions ────────────────────────────────────────────────────────────
+
+const getSubscriptions = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageSubscriptions) throw new apiError(403, 'Insufficient permissions');
+
+    const { page = 1, limit = 20, status, plan } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 20, 100);
+    const skip = (parseInt(page) - 1) * limitNum;
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (plan) filter.plan = plan;
+
+    const [subscriptions, total] = await Promise.all([
+        Subscription.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .populate('userId', 'name phone email')
+            .populate({ path: 'primaryDriver', select: 'vehicleType vehiclePlate', populate: { path: 'userId', select: 'name phone' } }),
+        Subscription.countDocuments(filter),
+    ]);
+
+    return res.status(200).json(
+        new apiResponse(200, {
+            subscriptions,
+            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
+        }, 'Subscriptions fetched')
+    );
+});
+
+const getSubscriptionById = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageSubscriptions) throw new apiError(403, 'Insufficient permissions');
+
+    const subscription = await Subscription.findById(req.params.id)
+        .populate('userId', 'name phone email')
+        .populate({ path: 'primaryDriver', populate: { path: 'userId', select: 'name phone' } });
+    if (!subscription) throw new apiError(404, 'Subscription not found');
+    return res.status(200).json(new apiResponse(200, subscription, 'Subscription fetched'));
+});
+
+const updateSubscriptionStatus = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageSubscriptions) throw new apiError(403, 'Insufficient permissions');
+
+    const { status } = req.body;
+    const validStatuses = ['active', 'paused', 'cancelled', 'expired'];
+    if (!validStatuses.includes(status)) throw new apiError(400, `Status must be one of: ${validStatuses.join(', ')}`);
+
+    const subscription = await Subscription.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!subscription) throw new apiError(404, 'Subscription not found');
+    return res.status(200).json(new apiResponse(200, subscription, 'Subscription status updated'));
+});
+
+const assignDriverToSubscription = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.manageSubscriptions) throw new apiError(403, 'Insufficient permissions');
+
+    const { driverId } = req.body;
+    const driver = await Driver.findById(driverId);
+    if (!driver) throw new apiError(404, 'Driver not found');
+    if (driver.status !== 'approved') throw new apiError(400, 'Driver must be approved');
+
+    const subscription = await Subscription.findByIdAndUpdate(
+        req.params.id,
+        { primaryDriver: driverId },
+        { new: true }
+    ).populate('userId', 'name phone');
+    if (!subscription) throw new apiError(404, 'Subscription not found');
+
+    return res.status(200).json(new apiResponse(200, subscription, 'Driver assigned to subscription'));
 });
 
 // ─── Support ──────────────────────────────────────────────────────────────────
@@ -507,20 +1074,19 @@ const getSupportTicketById = asyncHandler(async (req, res) => {
 
 const updateTicketStatus = asyncHandler(async (req, res) => {
     if (!req.admin.permissions.handleSupport) throw new apiError(403, 'Insufficient permissions');
-    const { status, assignTo } = req.body;
+    const { status } = req.body;
     const validStatuses = ['open', 'in_progress', 'resolved', 'closed'];
     if (!validStatuses.includes(status)) throw new apiError(400, `Status must be one of: ${validStatuses.join(', ')}`);
 
     const updates = { status };
     if (status === 'resolved') updates.resolvedAt = new Date();
-    if (assignTo) updates.assignedTo = assignTo;
 
     const ticket = await SupportTicket.findByIdAndUpdate(req.params.id, updates, { new: true });
     if (!ticket) throw new apiError(404, 'Ticket not found');
-    return res.status(200).json(new apiResponse(200, ticket, 'Ticket status updated'));
+    return res.status(200).json(new apiResponse(200, ticket, 'Ticket updated'));
 });
 
-const addAdminMessage = asyncHandler(async (req, res) => {
+const replyToTicket = asyncHandler(async (req, res) => {
     if (!req.admin.permissions.handleSupport) throw new apiError(403, 'Insufficient permissions');
     const { message } = req.body;
     if (!message) throw new apiError(400, 'Message is required');
@@ -533,15 +1099,88 @@ const addAdminMessage = asyncHandler(async (req, res) => {
     if (ticket.status === 'open') ticket.status = 'in_progress';
     await ticket.save();
 
-    return res.status(200).json(new apiResponse(200, ticket, 'Message added'));
+    return res.status(200).json(new apiResponse(200, ticket, 'Reply sent'));
+});
+
+const assignTicket = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.handleSupport) throw new apiError(403, 'Insufficient permissions');
+    const { adminId } = req.body;
+
+    const ticket = await SupportTicket.findByIdAndUpdate(
+        req.params.id,
+        { assignedTo: adminId || req.admin._id },
+        { new: true }
+    ).populate('assignedTo', 'name');
+    if (!ticket) throw new apiError(404, 'Ticket not found');
+
+    return res.status(200).json(new apiResponse(200, ticket, 'Ticket assigned'));
+});
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+const broadcastNotification = asyncHandler(async (req, res) => {
+    const { title, body, type = 'general', targetType = 'all' } = req.body;
+    if (!title || !body) throw new apiError(400, 'Title and body are required');
+
+    const VALID_TYPES = ['trip_request','bid_received','bid_accepted','driver_arriving','trip_started','trip_completed','trip_cancelled','subscription_alert','document_verified','document_rejected','account_approved','account_suspended','account_rejected','payment','general'];
+    const safeType = VALID_TYPES.includes(type) ? type : 'general';
+
+    let userIds = [];
+    if (targetType === 'all' || targetType === 'users') {
+        const users = await User.find({ accountStatus: 'active' }).select('_id');
+        userIds = userIds.concat(users.map(u => u._id));
+    }
+    if (targetType === 'all' || targetType === 'drivers') {
+        const drivers = await Driver.find({ status: 'approved' }).select('userId');
+        userIds = userIds.concat(drivers.map(d => d.userId));
+    }
+
+    const uniqueIds = [...new Set(userIds.map(id => id.toString()))];
+    if (uniqueIds.length === 0) {
+        return res.status(200).json(new apiResponse(200, { sent: 0 }, 'No recipients found'));
+    }
+
+    const notifications = uniqueIds.map(userId => ({ userId, title, body, type: safeType }));
+    await Notification.insertMany(notifications, { ordered: false });
+
+    return res.status(200).json(new apiResponse(200, { sent: uniqueIds.length }, 'Notification broadcast sent'));
+});
+
+const getNotificationHistory = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 20 } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 20, 100);
+    const skip = (parseInt(page) - 1) * limitNum;
+
+    const filter = { type: 'general' };
+
+    const [notifications, total] = await Promise.all([
+        Notification.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .populate('userId', 'name phone'),
+        Notification.countDocuments(filter),
+    ]);
+
+    return res.status(200).json(
+        new apiResponse(200, {
+            notifications,
+            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
+        }, 'Notification history fetched')
+    );
 });
 
 export {
     login, logout, refreshAdminToken, getMe,
     createAdmin, listAdmins, updateAdminPermissions, toggleAdminStatus, deleteAdmin,
-    getUsers, getUserById, updateUserStatus,
-    getDrivers, getDriverById, updateDriverStatus,
-    getPendingDocuments, verifyDocument, rejectDocument,
-    getTrips, getTripByIdAdmin, getAnalytics,
-    getSupportTickets, getSupportTicketById, updateTicketStatus, addAdminMessage,
+    getDashboardStats, getDashboardRecentTrips,
+    getAnalyticsOverview, getAnalyticsTrips, getAnalyticsUsers, getAnalyticsTopDrivers, getAnalyticsVehicleDistribution,
+    getUsers, getUserById, updateUserStatus, getUserTrips, getUserTransactions,
+    getDrivers, getDriverById, updateDriverStatus, verifyDriver, getDriverDocuments, getDriverTrips, getDriverEarnings,
+    getAllDocuments, verifyDocument, rejectDocument,
+    getTrips, getTripByIdAdmin, getTripBids, cancelTripAdmin,
+    getTransactions, getTransactionById, getTransactionSummary,
+    getSubscriptions, getSubscriptionById, updateSubscriptionStatus, assignDriverToSubscription,
+    getSupportTickets, getSupportTicketById, updateTicketStatus, replyToTicket, assignTicket,
+    broadcastNotification, getNotificationHistory,
 };

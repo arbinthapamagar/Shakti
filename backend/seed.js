@@ -1,26 +1,58 @@
-import { Admin } from './src/models/admin.model.js';
-import dbConnect from './src/db/index.js';
-import { asyncHandler } from './src/utils/asyncHandler.js';
-import { apiError } from './src/utils/apiError.js';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-const seedAdmin = async () => {
+import mongoose from 'mongoose';
+import { DB_NAME } from './src/utils/constant.js';
+import { Admin } from './src/models/admin.model.js';
+import { User } from './src/models/user.model.js';
+
+const dbConnect = async () => {
+  await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`);
+  console.log('DB connected');
+};
+
+const seed = async () => {
   await dbConnect();
-  const existingAdmin = await Admin.findOne({ email: 'arbinbabuthapamagar2002@gmail.com' });
-  if (existingAdmin) {
-    throw new apiError(400, 'superadmin already exits');
+
+  // ─── Super Admins ─────────────────────────────────────────────────────────────
+  const accounts = [
+    { name: 'Demo Admin', email: 'demo@gmail.com', phone: '9800000000', password: 'password', role: 'superadmin' },
+    { name: 'Arbeen', email: 'arbinbabuthapamagar2002@gmail.com', phone: '9818856764', password: 'Arbeen@1', role: 'superadmin' },
+  ];
+
+  for (const acc of accounts) {
+    const exists = await Admin.findOne({ $or: [{ email: acc.email }, { phone: acc.phone }] });
+    if (exists) {
+      console.log(`Admin ${acc.email} already exists, skipping`);
+    } else {
+      await Admin.create(acc);
+      console.log(`Created admin: ${acc.email} / ${acc.password}`);
+    }
   }
 
-  const admin = await Admin.create({
-    name: 'Arbeen',
-    email: 'arbinbabuthapamagar2002@gmail.com',
-    password: 'Arbeen@1',
-    phone: '9818856764',
-    role: 'superadmin',
-  });
-  console.log('admin EMAIL: ', admin.email);
-  process.exit();
+  // ─── Demo Mobile Users ────────────────────────────────────────────────────────
+  const mobileUsers = [
+    { name: 'Demo Rider', phone: '9818856764', email: 'demo.rider@gmail.com', password: 'password', gender: 'male' },
+    { name: 'Demo User', phone: '9800000001', email: 'demo@gmail.com', password: 'password', gender: 'male' },
+  ];
+
+  for (const u of mobileUsers) {
+    const exists = await User.findOne({ $or: [{ phone: u.phone }, { email: u.email }] });
+    if (exists) {
+      console.log(`User with phone ${u.phone} already exists, skipping`);
+    } else {
+      await User.create({ ...u, isPhoneVerified: true, accountStatus: 'active' });
+      console.log(`Created rider: phone=${u.phone}, password=${u.password}`);
+    }
+  }
+
+  console.log('\nSeed complete!');
+  console.log('Admin panel:  demo@gmail.com / password');
+  console.log('Mobile login: phone=9818856764, password=password');
+  process.exit(0);
 };
-seedAdmin();
+
+seed().catch((err) => {
+  console.error('Seed failed:', err.message);
+  process.exit(1);
+});
