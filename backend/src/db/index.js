@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { DB_NAME } from '../utils/constants.js';
+import { DB_NAME } from '../utils/constant.js';
 import dotenv from 'dotenv';
 dotenv.config();
 

@@ -42,7 +42,7 @@ const registerAsDriver = asyncHandler(async (req, res) => {
         licenseExpiry: new Date(licenseExpiry),
     });
 
-    await User.findByIdAndUpdate(req.user._id, { driverProfile: driver._id, role: 'driver' });
+    await User.findByIdAndUpdate(req.user._id, { driverProfile: driver._id });
     return res.status(201).json(new apiResponse(201, driver, 'Driver registered. Pending admin approval.'));
 });
 
@@ -78,7 +78,7 @@ const uploadDriverDocument = asyncHandler(async (req, res) => {
     if (!type) throw new apiError(400, 'Document type is required');
     if (!localFilePath) throw new apiError(400, 'Document file is required');
 
-    const validTypes = ['citizenship', 'driving_license', 'police_clearance', 'vehicle_registration', 'insurance', 'bluebook', 'profile_photo', 'vehicle_photo'];
+    const validTypes = ['citizenship', 'driving_license', 'police_clearance', 'vehicle_registration', 'vehicle_plate_back', 'insurance', 'bluebook', 'profile_photo', 'vehicle_photo'];
     if (!validTypes.includes(type)) throw new apiError(400, `Document type must be one of: ${validTypes.join(', ')}`);
 
     const result = await uploadOnCloudinary(localFilePath);

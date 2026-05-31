@@ -1,20 +1,17 @@
-const mongoose = require('mongoose');
-const { Schema } = mongoose;
+import mongoose from 'mongoose';
 
-const driverSchema = new Schema(
+const driverSchema = new mongoose.Schema(
     {
-        // link to user
         userId: {
-            type: Schema.Types.ObjectId,
+            type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
             required: true,
             unique: true,
         },
 
-        // vehicle info
         vehicleType: {
             type: String,
-            enum: ['bike', 'car', 'ev'],
+            enum: ['bike', 'scooter', 'tuktuk', 'tuktuk_delivery', 'taxi', 'comfort'],
             required: true,
         },
         vehiclePlate: {
@@ -22,17 +19,10 @@ const driverSchema = new Schema(
             required: true,
             unique: true,
         },
-        vehicleModel: {
-            type: String,
-        }, // e.g. "Honda City"
-        vehicleColor: {
-            type: String,
-        }, // e.g. "White"
-        vehicleYear: {
-            type: Number,
-        }, // e.g. 2020
+        vehicleModel: { type: String, default: null },
+        vehicleColor: { type: String, default: null },
+        vehicleYear: { type: Number, default: null },
 
-        // license
         licenseNumber: {
             type: String,
             required: true,
@@ -43,28 +33,16 @@ const driverSchema = new Schema(
             required: true,
         },
 
-        // verification by admin
         status: {
             type: String,
             enum: ['pending', 'approved', 'suspended', 'rejected'],
             default: 'pending',
         },
-        isVerified: {
-            type: Boolean,
-            default: false,
-        },
+        isVerified: { type: Boolean, default: false },
 
-        // real-time state
-        isOnline: {
-            type: Boolean,
-            default: false,
-        },
-        isOnRide: {
-            type: Boolean,
-            default: false,
-        },
+        isOnline: { type: Boolean, default: false },
+        isOnRide: { type: Boolean, default: false },
 
-        // location (for $near queries)
         currentLocation: {
             type: {
                 type: String,
@@ -77,84 +55,38 @@ const driverSchema = new Schema(
             },
         },
 
-        // stats
-        rating: {
-            type: Number,
-            default: 0,
-        },
-        totalRatings: {
-            type: Number,
-            default: 0,
-        },
-        totalRides: {
-            type: Number,
-            default: 0,
-        },
-        earnings: {
-            type: Number,
-            default: 0,
-        },
+        rating: { type: Number, default: 0 },
+        totalRatings: { type: Number, default: 0 },
+        totalRides: { type: Number, default: 0 },
+        earnings: { type: Number, default: 0 },
+        cancelledRides: { type: Number, default: 0 },
 
-        // cancellation tracking
-        cancelledRides: {
-            type: Number,
-            default: 0,
-        },
+        lastActiveAt: { type: Date, default: null },
+        vehicleCapacity: { type: Number, default: 4 },
+        isAvailable: { type: Boolean, default: true },
 
-        lastActiveAt: {
-            type: Date,
-            default: null,
-        },
-
-        vehicleCapacity: {
-            type: Number,
-            default: 4,
-        },
-        isAvailable: {
-            type: Boolean,
-            default: true,
-        },
         poolAssignments: [
             {
-                type: Schema.Types.ObjectId,
+                type: mongoose.Schema.Types.ObjectId,
                 ref: 'Subscription',
             },
         ],
+
         documents: {
-            licenseImage: {
-                type: String,
-                default: null,
-            },
-            citizenshipImage: {
-                type: String,
-                default: null,
-            },
-            vehicleImage: {
-                type: String,
-                default: null,
-            },
-            insuranceImage: {
-                type: String,
-                default: null,
-            },
-            bluebook: {
-                type: String,
-                default: null,
-            },
-            policeReport: {
-                type: String,
-                required: [true, 'polic report is mandatory '],
-            },
+            licenseImage: { type: String, default: null },
+            citizenshipImage: { type: String, default: null },
+            vehicleImage: { type: String, default: null },
+            insuranceImage: { type: String, default: null },
+            bluebook: { type: String, default: null },
+            policeReport: { type: String, default: null },
         },
+
     },
     { timestamps: true }
 );
 
-// IMPORTANT: for location-based queries
 driverSchema.index({ currentLocation: '2dsphere' });
-driverSchema.index({ isOnline: 1 });
+driverSchema.index({ isOnline: 1, status: 1 });
 driverSchema.index({ isAvailable: 1 });
-driverSchema.index({ status: 1 });
-driverSchema.index({ userId: 1 });
 
-module.exports = mongoose.model('Driver', driverSchema);
+export const Driver = mongoose.model('Driver', driverSchema);

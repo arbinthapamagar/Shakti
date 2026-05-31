@@ -35,7 +35,7 @@ const adminSchema = new mongoose.Schema(
 
         role: {
             type: String,
-            enum: ['superadmin', 'headmaster', 'moderator'],
+            enum: ['superadmin', 'admin', 'headmaster', 'moderator'],
             required: true,
         },
 
@@ -108,61 +108,22 @@ const adminSchema = new mongoose.Schema(
     }
 );
 
-adminSchema.index({ email: 1 });
 adminSchema.index({ role: 1 });
 adminSchema.index({ isActive: 1 });
 
-adminSchema.pre('save', function (next) {
+adminSchema.pre('save', async function () {
     if (this.isModified('role')) {
-        if (this.role === 'superadmin') {
-            this.permissions = {
-                manageUsers: true,
-                manageDrivers: true,
-                manageTrips: true,
-                managePayments: true,
-                verifyDocuments: true,
-                handleSupport: true,
-                manageAdmins: true,
-                viewAnalytics: true,
-                manageSubscriptions: true,
-                manageSuppliers: true,
-            };
-        } else if (this.role === 'headmaster') {
-            this.permissions = {
-                manageUsers: true,
-                manageDrivers: true,
-                manageTrips: true,
-                managePayments: false,
-                verifyDocuments: true,
-                handleSupport: true,
-                manageAdmins: false,
-                viewAnalytics: true,
-                manageSubscriptions: true,
-                manageSuppliers: true,
-            };
-        } else if (this.role === 'moderator') {
-            this.permissions = {
-                manageUsers: true,
-                manageDrivers: true,
-                manageTrips: false,
-                managePayments: false,
-                verifyDocuments: true,
-                handleSupport: true,
-                manageAdmins: false,
-                viewAnalytics: false,
-                manageSubscriptions: false,
-                manageSuppliers: false,
-            };
-        }
+        const ROLE_PERMISSIONS = {
+            superadmin: { manageUsers: true, manageDrivers: true, manageTrips: true, managePayments: true, verifyDocuments: true, handleSupport: true, manageAdmins: true, viewAnalytics: true, manageSubscriptions: true, manageSuppliers: true },
+            admin:      { manageUsers: true, manageDrivers: true, manageTrips: true, managePayments: true, verifyDocuments: true, handleSupport: true, manageAdmins: false, viewAnalytics: true, manageSubscriptions: true, manageSuppliers: true },
+            headmaster: { manageUsers: true, manageDrivers: true, manageTrips: true, managePayments: false, verifyDocuments: true, handleSupport: true, manageAdmins: false, viewAnalytics: true, manageSubscriptions: true, manageSuppliers: true },
+            moderator:  { manageUsers: true, manageDrivers: true, manageTrips: false, managePayments: false, verifyDocuments: true, handleSupport: true, manageAdmins: false, viewAnalytics: false, manageSubscriptions: false, manageSuppliers: false },
+        };
+        if (ROLE_PERMISSIONS[this.role]) this.permissions = ROLE_PERMISSIONS[this.role];
     }
-
-    next();
-});
-
-adminSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) return next();
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
+    if (this.isModified('password')) {
+        this.password = await bcrypt.hash(this.password, 10);
+    }
 });
 
 adminSchema.methods.isPasswordCorrect = async function (password) {

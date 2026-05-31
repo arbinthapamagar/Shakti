@@ -124,7 +124,7 @@ const subscriptionSchema = new mongoose.Schema(
 
         vehicleType: {
             type: String,
-            enum: ['tuktuk', 'tuktuk_delivery', 'scooter', 'evCar'],
+            enum: ['tuktuk', 'tuktuk_delivery', 'scooter', 'bike', 'taxi', 'comfort'],
             required: true,
         },
     },

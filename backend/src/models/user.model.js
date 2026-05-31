@@ -148,11 +148,12 @@ const userSchema = new mongoose.Schema(
     otp: {
       code: { type: String, default: null },
       expiresAt: { type: Date, default: null },
+      attempts: { type: Number, default: 0 },
     },
     role:{
-        type:String, 
-        enum:['passanger', 'driver'],
-        default:['passenger']
+        type:String,
+        enum:['passenger', 'driver'],
+        default:'passenger'
     }
   },
   { 
@@ -160,7 +161,6 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-userSchema.index({ phone: 1 });
 userSchema.index({ accountStatus: 1 });
 userSchema.index({ userType: 1 });
 userSchema.index({ currentLocation: "2dsphere" });
@@ -171,10 +171,9 @@ userSchema.index({ "savedAddresses.location": "2dsphere" });
 // has password befor saving 
 
 
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
     if (!this.isModified("password")) return;
     this.password = await bcrypt.hash(this.password, 10);
-    next ()
 });
 
 // compare password 
