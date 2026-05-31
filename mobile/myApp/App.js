@@ -1,43 +1,123 @@
-import { useState } from 'react';
-import { SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
 import TabBar from './components/TabBar';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import DriverPendingScreen from './screens/DriverPendingScreen';
+import DriverVehicleScreen from './screens/DriverVehicleScreen';
 import HomeScreen from './screens/home';
 import InboxScreen from './screens/InboxScreen';
 import LoginScreen from './screens/LoginScreen';
+import OtpScreen from './screens/OtpScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import RegisterScreen from './screens/RegisterScreen';
+import RoleSelectScreen from './screens/RoleSelectScreen';
 import SubscriptionScreen from './screens/SubscriptionScreen';
 import TripsScreen from './screens/TripsScreen';
 import WalletScreen from './screens/WalletScreen';
 import { colors } from './theme/colors';
 
-export default function App() {
-  const [authed, setAuthed] = useState(true);
-  const [authScreen, setAuthScreen] = useState('login');
+// authScreen values:
+// 'role-select' | 'login' | 'register' | 'otp' — unauthenticated
+// 'driver-vehicle' | 'driver-pending'          — authenticated, driver onboarding
+function AppShell() {
+  const { user, loading } = useAuth();
+  const [authScreen, setAuthScreen] = useState('role-select');
+  const [role, setRole] = useState('passenger'); // 'passenger' | 'driver'
+  const [pendingPhone, setPendingPhone] = useState('');
   const [tab, setTab] = useState('home');
   const [overlay, setOverlay] = useState(null);
 
-  if (!authed) {
+  // After OTP verification the user becomes set in context.
+  // If they chose the driver role, transition to vehicle details form.
+  useEffect(() => {
+    if (user && role === 'driver' && authScreen === 'otp') {
+      setAuthScreen('driver-vehicle');
+    }
+  }, [user, role, authScreen]);
+
+  // Reset to home tab on passenger login
+  useEffect(() => {
+    if (user && role === 'passenger') setTab('home');
+  }, [user, role]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.splash}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  // ── Driver onboarding (user is logged in but completing driver setup) ──────
+  if (user && authScreen === 'driver-vehicle') {
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-        {authScreen === 'login' ? (
-          <LoginScreen
-            onGoToRegister={() => setAuthScreen('register')}
-            onBypass={() => setAuthed(true)}
+        <DriverVehicleScreen
+          onSuccess={() => setAuthScreen('driver-pending')}
+          onBack={() => setAuthScreen('otp')}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (user && authScreen === 'driver-pending') {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <DriverPendingScreen />
+      </SafeAreaView>
+    );
+  }
+
+  // ── Not authenticated ─────────────────────────────────────────────────────
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
+        {authScreen === 'role-select' && (
+          <RoleSelectScreen
+            onPassenger={() => { setRole('passenger'); setAuthScreen('register'); }}
+            onDriver={() => { setRole('driver'); setAuthScreen('register'); }}
+            onSignIn={() => setAuthScreen('login')}
           />
-        ) : (
-          <RegisterScreen onGoToLogin={() => setAuthScreen('login')} />
+        )}
+
+        {authScreen === 'login' && (
+          <LoginScreen onGoToRegister={() => setAuthScreen('role-select')} />
+        )}
+
+        {authScreen === 'register' && (
+          <RegisterScreen
+            onGoToLogin={() => setAuthScreen('login')}
+            onRegistered={(phone) => {
+              setPendingPhone(phone);
+              setAuthScreen('otp');
+            }}
+          />
+        )}
+
+        {authScreen === 'otp' && (
+          <OtpScreen
+            phone={pendingPhone}
+            onSuccess={() => {
+              // For passengers, AuthContext sets user → this branch re-renders to passenger app.
+              // For drivers, the useEffect above catches user being set and moves to driver-vehicle.
+            }}
+            onBack={() => setAuthScreen('register')}
+          />
         )}
       </SafeAreaView>
     );
   }
 
-  const signOut = () => {
+  // ── Passenger app ─────────────────────────────────────────────────────────
+  const signOut = async () => {
     setOverlay(null);
     setTab('home');
-    setAuthed(false);
-    setAuthScreen('login');
+    setAuthScreen('role-select');
+    setRole('passenger');
   };
 
   return (
@@ -70,8 +150,17 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
+  splash: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1 },
   content: { flex: 1 },
 });
