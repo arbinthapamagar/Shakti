@@ -629,6 +629,12 @@ const updateDriverStatus = asyncHandler(async (req, res) => {
     );
     if (!driver) throw new apiError(404, 'Driver not found');
 
+    if (status === 'approved') {
+        await User.findByIdAndUpdate(driver.userId, { role: 'driver' });
+    } else if (status === 'rejected' || status === 'suspended') {
+        await User.findByIdAndUpdate(driver.userId, { role: 'passenger' });
+    }
+
     const notifTitle = status === 'approved' ? 'Account Approved' : status === 'rejected' ? 'Account Rejected' : 'Account Suspended';
     const notifBody = status === 'approved'
         ? 'Your driver account has been approved. You can now go online and accept trips.'
