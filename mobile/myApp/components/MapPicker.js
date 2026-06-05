@@ -200,7 +200,7 @@ export default function MapPicker({ visible, title = 'Drop-off', onCancel, onCon
             label="Confirm location"
             onPress={() => {
               hapticSuccess();
-              onConfirm(address);
+              onConfirm({ address, coords: center });
             }}
           />
         </View>
