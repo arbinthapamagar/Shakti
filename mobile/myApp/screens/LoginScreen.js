@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,16 +10,18 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
-export default function LoginScreen({ onGoToRegister, onBypass }) {
+export default function LoginScreen({ onGoToRegister }) {
+  const { login } = useAuth();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     const trimmedPhone = phone.trim();
 
@@ -36,10 +39,14 @@ export default function LoginScreen({ onGoToRegister, onBypass }) {
     }
 
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      await login(trimmedPhone, password);
+      // AuthContext sets user → AppShell re-renders to main app
+    } catch (err) {
+      setError(err.message || 'Login failed. Check your credentials.');
+    } finally {
       setSubmitting(false);
-      setError('Login is not connected to the server yet.');
-    }, 600);
+    }
   };
 
   return (
@@ -71,6 +78,7 @@ export default function LoginScreen({ onGoToRegister, onBypass }) {
               keyboardType="phone-pad"
               style={styles.input}
               autoComplete="tel"
+              editable={!submitting}
             />
           </View>
 
@@ -85,6 +93,7 @@ export default function LoginScreen({ onGoToRegister, onBypass }) {
                 secureTextEntry={!showPassword}
                 style={[styles.input, styles.passwordInput]}
                 autoComplete="password"
+                editable={!submitting}
               />
               <Pressable
                 onPress={() => setShowPassword((v) => !v)}
@@ -98,7 +107,17 @@ export default function LoginScreen({ onGoToRegister, onBypass }) {
             </View>
           </View>
 
-          <Pressable hitSlop={8} style={styles.forgotWrap}>
+          <Pressable
+            hitSlop={8}
+            style={styles.forgotWrap}
+            onPress={() =>
+              Alert.alert(
+                'Forgot Password',
+                'Enter your registered phone number. An OTP will be sent to your email.',
+                [{ text: 'OK' }],
+              )
+            }
+          >
             <Text style={styles.forgot}>Forgot password?</Text>
           </Pressable>
 
@@ -114,12 +133,8 @@ export default function LoginScreen({ onGoToRegister, onBypass }) {
             disabled={submitting}
           >
             <Text style={styles.primaryButtonText}>
-              {submitting ? 'Signing in...' : 'Sign in'}
+              {submitting ? 'Signing in…' : 'Sign in'}
             </Text>
-          </Pressable>
-
-          <Pressable style={styles.bypassButton} onPress={onBypass}>
-            <Text style={styles.bypassButtonText}>Skip for now</Text>
           </Pressable>
         </View>
 
@@ -212,19 +227,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 999,
     alignItems: 'center',
-  },
-  bypassButton: {
-    marginTop: 12,
-    paddingVertical: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  bypassButtonText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '600',
   },
   primaryButtonPressed: { backgroundColor: colors.primaryDark },
   primaryButtonDisabled: { opacity: 0.6 },
