@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  SafeAreaView,
   TextInput,
 } from 'react-native';
+import DriverVehicleScreen from './DriverVehicleScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { ChevronIcon, StarIcon } from '../components/Icons';
 import MapPicker from '../components/MapPicker';
 import { confirm as hapticConfirm } from '../components/haptics';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,74 +23,10 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useAuth } from '../context/AuthContext';
+import { userApi } from '../api/user.api';
 import { colors } from '../theme/colors';
 
-const PROFILE = {
-  name: 'Arbeen Shrestha',
-  phone: '+977 9812345678',
-  email: 'arbeen@matat.io',
-  dateOfBirth: '1999-08-14',
-  gender: 'male',
-  userType: 'regular',
-  role: 'driver',
-  isPhoneVerified: true,
-  isEmailVerified: false,
-  accountStatus: 'active',
-  walletBalance: 1240,
-  preferredPaymentMethod: 'esewa',
-  rating: { average: 4.92, total: 184 },
-  lastLoginAt: '2026-05-15T08:24:00.000Z',
-  memberSince: '2024-02-11T00:00:00.000Z',
-  savedAddresses: [
-    {
-      label: 'home',
-      address: 'Baluwatar, Kathmandu',
-    },
-    {
-      label: 'work',
-      address: 'Durbar Marg, Kathmandu',
-    },
-    {
-      label: 'other',
-      address: 'Bhatbhateni Maharajgunj',
-    },
-  ],
-  subscription: {
-    plan: 'Shakti Plus',
-    status: 'active',
-    renewsOn: '2026-06-01',
-    price: 'Rs 499 / month',
-  },
-  driverProfile: {
-    vehicleType: 'car',
-    vehiclePlate: 'BA 2 PA 4521',
-    vehicleModel: 'Suzuki Alto',
-    vehicleColor: 'White',
-    vehicleYear: 2021,
-    vehicleCapacity: 4,
-    licenseNumber: '03-08-12345678',
-    licenseExpiry: '2028-11-30',
-    status: 'approved',
-    isVerified: true,
-    isOnline: true,
-    isAvailable: true,
-    isOnRide: false,
-    rating: 4.92,
-    totalRatings: 184,
-    totalRides: 1280,
-    cancelledRides: 6,
-    earnings: 84620,
-    lastActiveAt: '2026-05-15T08:24:00.000Z',
-    documents: [
-      { key: 'licenseImage', label: 'Driving licence', uploaded: true },
-      { key: 'citizenshipImage', label: 'Citizenship', uploaded: true },
-      { key: 'vehicleImage', label: 'Vehicle photo', uploaded: true },
-      { key: 'insuranceImage', label: 'Insurance', uploaded: true },
-      { key: 'bluebook', label: 'Bluebook', uploaded: true },
-      { key: 'policeReport', label: 'Police report', uploaded: false },
-    ],
-  },
-};
 
 const PAYMENT_LABELS = {
   cash: 'Cash',
@@ -125,41 +64,84 @@ function formatDateTime(value) {
 }
 
 export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription }) {
-  const [online, setOnline] = useState(PROFILE.driverProfile.isOnline);
-  const [available, setAvailable] = useState(PROFILE.driverProfile.isAvailable);
+  const { user, logout, refreshUser } = useAuth();
+
+  const [driverProfile, setDriverProfile] = useState(null);
+  const [driverStatus, setDriverStatus] = useState(null); // null | 'pending' | 'approved' | 'rejected' | 'suspended'
+  const [online, setOnline] = useState(false);
   const [pushNotifs, setPushNotifs] = useState(true);
   const [rideReminders, setRideReminders] = useState(true);
-  const [avatarUri, setAvatarUri] = useState(null);
+  const [avatarUri, setAvatarUri] = useState(user?.avatarUrl || null);
+  const [driverOverlay, setDriverOverlay] = useState(null); // null | 'vehicle' | 'pending'
 
   const [profile, setProfile] = useState({
-    name: PROFILE.name,
-    phone: PROFILE.phone,
-    email: PROFILE.email,
-    walletBalance: PROFILE.walletBalance,
+    name: user?.name || '',
+    phone: user?.phone || '',
+    email: user?.email || '',
+    walletBalance: user?.walletBalance || 0,
   });
-  const [addresses, setAddresses] = useState(PROFILE.savedAddresses);
-  const [documents, setDocuments] = useState(PROFILE.driverProfile.documents);
+  const [addresses, setAddresses] = useState([]);
   const [tfaEnabled, setTfaEnabled] = useState(false);
-  const [role, setRole] = useState(PROFILE.role || 'passenger');
   const [modal, setModal] = useState(null);
   const closeModal = () => setModal(null);
 
-  const updateAddress = (label, newAddress) => {
-    setAddresses((prev) =>
-      prev.map((a) => (a.label === label ? { ...a, address: newAddress } : a)),
-    );
+  const isDriver = driverStatus === 'approved';
+
+  // Load saved addresses + check driver profile on mount
+  useEffect(() => {
+    userApi.getSavedAddresses().then((res) => {
+      setAddresses(res.data || []);
+    }).catch(() => {});
+
+    userApi.getMyDriverProfile().then((res) => {
+      const dp = res.data?.driver || res.data;
+      setDriverProfile(dp);
+      setDriverStatus(dp?.status || null);
+      setOnline(dp?.isOnline ?? false);
+    }).catch(() => {
+      setDriverStatus(null);
+    });
+  }, []);
+
+  const toggleOnline = useCallback(async (val) => {
+    setOnline(val);
+    try {
+      if (val) {
+        await userApi.goOnline();
+      } else {
+        await userApi.goOffline();
+      }
+    } catch (err) {
+      setOnline(!val);
+      Alert.alert('Error', err.message || 'Could not update status.');
+    }
+  }, []);
+
+  const updateAddress = async (id, data) => {
+    try {
+      await userApi.updateSavedAddress(id, data);
+      setAddresses((prev) => prev.map((a) => (a._id === id ? { ...a, ...data } : a)));
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Could not update address.');
+    }
   };
-  const addAddress = (label, address) => {
-    setAddresses((prev) => [...prev, { label, address }]);
+  const addAddress = async (label, address, coordinates) => {
+    try {
+      const res = await userApi.addSavedAddress({ label, address, coordinates });
+      setAddresses((prev) => [...prev, res.data]);
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Could not add address.');
+    }
   };
-  const removeAddress = (label) => {
-    setAddresses((prev) => prev.filter((a) => a.label !== label));
+  const removeAddress = async (id) => {
+    try {
+      await userApi.deleteSavedAddress(id);
+      setAddresses((prev) => prev.filter((a) => a._id !== id));
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Could not remove address.');
+    }
   };
-  const toggleDocument = (key) => {
-    setDocuments((prev) =>
-      prev.map((d) => (d.key === key ? { ...d, uploaded: !d.uploaded } : d)),
-    );
-  };
+
   const addToWallet = (amount) => {
     setProfile((p) => ({ ...p, walletBalance: p.walletBalance + amount }));
   };
@@ -167,10 +149,7 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
   const pickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission needed',
-        'Please allow photo access to change your avatar.',
-      );
+      Alert.alert('Permission needed', 'Please allow photo access to change your avatar.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -180,12 +159,17 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
       quality: 0.7,
     });
     if (!result.canceled && result.assets?.[0]?.uri) {
-      setAvatarUri(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      setAvatarUri(uri);
+      try {
+        await userApi.uploadAvatar(uri);
+      } catch (err) {
+        Alert.alert('Upload failed', err.message || 'Could not upload avatar.');
+      }
     }
   };
 
-  const isDriver = role === 'driver';
-  const initials = PROFILE.name
+  const initials = (user?.name || 'U')
     .split(' ')
     .map((p) => p[0])
     .join('')
@@ -238,93 +222,95 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
           <Text style={styles.name}>{profile.name}</Text>
           <Text style={styles.heroSub}>{profile.email}</Text>
 
-          <View style={styles.modeToggle}>
-            <Pressable
-              onPress={() => setRole('passenger')}
-              style={[
-                styles.modeBtn,
-                !isDriver && styles.modeBtnActive,
-              ]}
-            >
-              <Ionicons
-                name="person"
-                size={14}
-                color={!isDriver ? '#ffffff' : colors.textMuted}
-              />
-              <Text
-                style={[
-                  styles.modeBtnText,
-                  !isDriver && styles.modeBtnTextActive,
-                ]}
-              >
-                Passenger
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setRole('driver')}
-              style={[
-                styles.modeBtn,
-                isDriver && styles.modeBtnActive,
-              ]}
-            >
-              <Ionicons
-                name="car-sport"
-                size={14}
-                color={isDriver ? '#ffffff' : colors.textMuted}
-              />
-              <Text
-                style={[
-                  styles.modeBtnText,
-                  isDriver && styles.modeBtnTextActive,
-                ]}
-              >
-                Driver
-              </Text>
-            </Pressable>
-          </View>
+          {isDriver && (
+            <View style={styles.driverBadge}>
+              <Ionicons name="car-sport" size={13} color="#1a56db" />
+              <Text style={styles.driverBadgeText}>Driver</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.statsRow}>
           <Stat
             icon={<StarIcon size={16} color="#f5b400" />}
-            value={PROFILE.rating.average.toFixed(2)}
-            label={`${PROFILE.rating.total} ratings`}
+            value={(user?.rating?.average ?? 0).toFixed(2)}
+            label={`${user?.rating?.total ?? 0} ratings`}
           />
           <View style={styles.statsDivider} />
           <Stat
             icon={
               <Ionicons name="navigate" size={14} color={colors.primary} />
             }
-            value={isDriver ? PROFILE.driverProfile.totalRides : 38}
-            label={isDriver ? 'Rides' : 'Trips'}
+            value={0}
+            label="Trips"
           />
           <View style={styles.statsDivider} />
           <Stat
             icon={
               <Ionicons name="calendar" size={14} color="#5c6fff" />
             }
-            value={formatDate(PROFILE.memberSince).split(' ')[2]}
+            value={formatDate(user?.createdAt).split(' ')[2]}
             label="Member"
           />
         </View>
+
+        {driverStatus === null && (
+          <Pressable
+            style={styles.becomeDriverCard}
+            onPress={() => setDriverOverlay('vehicle')}
+          >
+            <View style={styles.becomeDriverLeft}>
+              <Text style={styles.becomeDriverEmoji}>🚗</Text>
+              <View>
+                <Text style={styles.becomeDriverTitle}>Become a driver</Text>
+                <Text style={styles.becomeDriverSub}>Earn money driving in your city</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        )}
+
+        {(driverStatus === 'pending') && (
+          <View style={styles.reviewBanner}>
+            <Ionicons name="time-outline" size={22} color="#92400e" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reviewBannerTitle}>Documents under review</Text>
+              <Text style={styles.reviewBannerSub}>
+                Our team is reviewing your application. You'll be notified once approved.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {(driverStatus === 'rejected') && (
+          <View style={[styles.reviewBanner, styles.rejectedBanner]}>
+            <Ionicons name="close-circle-outline" size={22} color={colors.danger} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.reviewBannerTitle, { color: colors.danger }]}>Application rejected</Text>
+              <Text style={styles.reviewBannerSub}>
+                Your application was not approved. Contact support for details.
+              </Text>
+            </View>
+          </View>
+        )}
 
         <Section title="Personal information" collapsible defaultOpen={false}>
           <Row label="Full name" value={profile.name} />
           <Row
             label="Phone"
             value={profile.phone}
-            badge={PROFILE.isPhoneVerified ? 'Verified' : 'Unverified'}
-            badgeTone={PROFILE.isPhoneVerified ? 'good' : 'warn'}
+            badge={user?.isPhoneVerified ? 'Verified' : 'Unverified'}
+            badgeTone={user?.isPhoneVerified ? 'good' : 'warn'}
           />
           <Row
             label="Email"
             value={profile.email}
-            badge={PROFILE.isEmailVerified ? 'Verified' : 'Unverified'}
-            badgeTone={PROFILE.isEmailVerified ? 'good' : 'warn'}
+            badge={user?.isEmailVerified ? 'Verified' : 'Unverified'}
+            badgeTone={user?.isEmailVerified ? 'good' : 'warn'}
           />
-          <Row label="Date of birth" value={formatDate(PROFILE.dateOfBirth)} />
-          <Row label="Gender" value={GENDER_LABELS[PROFILE.gender]} />
-          <Row label="Account type" value={USER_TYPE_LABELS[PROFILE.userType]} last />
+          <Row label="Date of birth" value={formatDate(user?.dateOfBirth)} />
+          <Row label="Gender" value={GENDER_LABELS[user?.gender]} />
+          <Row label="Account type" value={USER_TYPE_LABELS[user?.userType || 'regular']} last />
         </Section>
 
         <Section title="Wallet & payments">
@@ -344,37 +330,15 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
           </View>
           <Row
             label="Preferred method"
-            value={PAYMENT_LABELS[PROFILE.preferredPaymentMethod]}
+            value={PAYMENT_LABELS[user?.preferredPaymentMethod] || '—'}
             last
           />
         </Section>
 
-        {PROFILE.subscription && (
-          <Section title="Subscription">
-            <View style={styles.subCard}>
-              <View style={styles.subHeader}>
-                <Text style={styles.subPlan}>{PROFILE.subscription.plan}</Text>
-                <View style={[styles.statusPill, styles.statusActive]}>
-                  <Text style={styles.statusPillText}>
-                    {PROFILE.subscription.status}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.subPrice}>{PROFILE.subscription.price}</Text>
-              <Text style={styles.subRenews}>
-                Renews on {formatDate(PROFILE.subscription.renewsOn)}
-              </Text>
-              <Pressable style={styles.subManage} onPress={onOpenSubscription}>
-                <Text style={styles.subManageText}>Manage subscription</Text>
-              </Pressable>
-            </View>
-          </Section>
-        )}
-
         <Section title="Saved places">
           {addresses.map((a, i) => (
             <Pressable
-              key={a.label}
+              key={a._id || a.label}
               style={[
                 styles.savedRow,
                 i === addresses.length - 1 && styles.rowLast,
@@ -426,130 +390,40 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
                 </View>
                 <Switch
                   value={online}
-                  onValueChange={setOnline}
+                  onValueChange={toggleOnline}
                   thumbColor="#ffffff"
                   trackColor={{ false: colors.border, true: colors.primary }}
-                />
-              </View>
-              <View style={styles.toggleRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.toggleLabel}>Available for new trips</Text>
-                  <Text style={styles.toggleHint}>
-                    Turn off if you don't want new requests right now.
-                  </Text>
-                </View>
-                <Switch
-                  value={available}
-                  onValueChange={setAvailable}
-                  thumbColor="#ffffff"
-                  trackColor={{ false: colors.border, true: colors.primary }}
+                  disabled={driverProfile?.isOnRide}
                 />
               </View>
               <Row
                 label="Verification"
-                value={
-                  PROFILE.driverProfile.isVerified ? 'Verified' : 'Pending'
-                }
-                badge={PROFILE.driverProfile.status}
-                badgeTone={
-                  PROFILE.driverProfile.status === 'approved' ? 'good' : 'warn'
-                }
+                value={driverProfile?.status || 'pending'}
+                badge={driverProfile?.status || 'pending'}
+                badgeTone={driverProfile?.status === 'approved' ? 'good' : 'warn'}
               />
               <Row
-                label="Last active"
-                value={formatDateTime(PROFILE.driverProfile.lastActiveAt)}
+                label="On a ride"
+                value={driverProfile?.isOnRide ? 'Yes' : 'No'}
                 last
               />
             </Section>
 
             <Section title="Vehicle" collapsible defaultOpen={false}>
-              <Row
-                label="Type"
-                value={
-                  PROFILE.driverProfile.vehicleType.charAt(0).toUpperCase() +
-                  PROFILE.driverProfile.vehicleType.slice(1)
-                }
-              />
-              <Row label="Model" value={PROFILE.driverProfile.vehicleModel} />
-              <Row label="Colour" value={PROFILE.driverProfile.vehicleColor} />
-              <Row
-                label="Year"
-                value={String(PROFILE.driverProfile.vehicleYear)}
-              />
-              <Row label="Plate" value={PROFILE.driverProfile.vehiclePlate} />
-              <Row
-                label="Capacity"
-                value={`${PROFILE.driverProfile.vehicleCapacity} seats`}
-                last
-              />
-            </Section>
-
-            <Section title="Licence" collapsible defaultOpen={false}>
-              <Row
-                label="Number"
-                value={PROFILE.driverProfile.licenseNumber}
-              />
-              <Row
-                label="Expiry"
-                value={formatDate(PROFILE.driverProfile.licenseExpiry)}
-                last
-              />
+              <Row label="Type" value={driverProfile?.vehicleType || '—'} />
+              <Row label="Model" value={driverProfile?.vehicleModel || '—'} />
+              <Row label="Colour" value={driverProfile?.vehicleColor || '—'} />
+              <Row label="Year" value={driverProfile?.vehicleYear ? String(driverProfile.vehicleYear) : '—'} />
+              <Row label="Plate" value={driverProfile?.vehiclePlate || '—'} last />
             </Section>
 
             <Section title="Driving stats" collapsible defaultOpen={false}>
               <View style={styles.metricsGrid}>
-                <Metric
-                  label="Total rides"
-                  value={PROFILE.driverProfile.totalRides.toLocaleString()}
-                />
-                <Metric
-                  label="Earnings"
-                  value={`Rs ${PROFILE.driverProfile.earnings.toLocaleString()}`}
-                />
-                <Metric
-                  label="Cancelled"
-                  value={String(PROFILE.driverProfile.cancelledRides)}
-                />
-                <Metric
-                  label="Rating"
-                  value={`${PROFILE.driverProfile.rating.toFixed(2)} / 5`}
-                />
+                <Metric label="Total rides" value={String(driverProfile?.totalRides ?? 0)} />
+                <Metric label="Earnings" value={`Rs ${(driverProfile?.earnings ?? 0).toLocaleString()}`} />
+                <Metric label="Rating" value={`${(driverProfile?.rating?.average ?? 0).toFixed(2)} / 5`} />
+                <Metric label="Status" value={driverProfile?.status || '—'} />
               </View>
-            </Section>
-
-            <Section title="Documents" collapsible defaultOpen={false}>
-              {documents.map((doc, i) => (
-                <Pressable
-                  key={doc.key}
-                  style={[
-                    styles.docRow,
-                    i === documents.length - 1 && styles.rowLast,
-                  ]}
-                  onPress={() => setModal({ type: 'doc', data: doc })}
-                >
-                  <View style={styles.docIcon}>
-                    <Ionicons
-                      name="document-text"
-                      size={18}
-                      color={colors.primaryDark}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.docLabel}>{doc.label}</Text>
-                    <Text
-                      style={[
-                        styles.docState,
-                        doc.uploaded ? styles.docStateGood : styles.docStateWarn,
-                      ]}
-                    >
-                      {doc.uploaded ? 'Uploaded' : 'Missing'}
-                    </Text>
-                  </View>
-                  <Text style={styles.docAction}>
-                    {doc.uploaded ? 'View' : 'Upload'}
-                  </Text>
-                </Pressable>
-              ))}
             </Section>
           </>
         )}
@@ -611,11 +485,11 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
         </Section>
 
         <Section title="About">
-          <Row label="Last login" value={formatDateTime(PROFILE.lastLoginAt)} />
+          <Row label="Last login" value={formatDateTime(user?.lastLoginAt)} />
           <Row label="App version" value="1.0.0 (beta)" last />
         </Section>
 
-        <Pressable style={styles.signOutBtn} onPress={onSignOut}>
+        <Pressable style={styles.signOutBtn} onPress={async () => { await logout(); onSignOut(); }}>
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
 
@@ -630,11 +504,44 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
         updateAddress={updateAddress}
         addAddress={addAddress}
         removeAddress={removeAddress}
-        toggleDocument={toggleDocument}
         addToWallet={addToWallet}
         tfaEnabled={tfaEnabled}
         setTfaEnabled={setTfaEnabled}
       />
+
+      {driverOverlay === 'vehicle' && (
+        <View style={styles.overlay}>
+          <SafeAreaView style={{ flex: 1 }}>
+            <DriverVehicleScreen
+              onSuccess={async () => {
+                setDriverStatus('pending');
+                setDriverOverlay('pending');
+              }}
+              onBack={() => setDriverOverlay(null)}
+            />
+          </SafeAreaView>
+        </View>
+      )}
+
+      {driverOverlay === 'pending' && (
+        <View style={styles.overlay}>
+          <SafeAreaView style={styles.pendingRoot}>
+            <View style={styles.pendingInner}>
+              <View style={styles.pendingIconWrap}>
+                <Text style={styles.pendingIconEmoji}>🎉</Text>
+              </View>
+              <Text style={styles.pendingTitle}>Application submitted!</Text>
+              <Text style={styles.pendingSub}>
+                Our team will review your vehicle and licence details within 24 hours.
+                You'll be notified once approved.
+              </Text>
+              <Pressable style={styles.pendingBtn} onPress={() => setDriverOverlay(null)}>
+                <Text style={styles.pendingBtnText}>Done</Text>
+              </Pressable>
+            </View>
+          </SafeAreaView>
+        </View>
+      )}
     </View>
   );
 }
@@ -647,7 +554,6 @@ function ProfileModal({
   updateAddress,
   addAddress,
   removeAddress,
-  toggleDocument,
   addToWallet,
   tfaEnabled,
   setTfaEnabled,
@@ -686,13 +592,6 @@ function ProfileModal({
           )}
           {modal?.type === 'add-address' && (
             <AddAddressForm addAddress={addAddress} close={close} />
-          )}
-          {modal?.type === 'doc' && (
-            <DocViewer
-              doc={modal.data}
-              toggleDocument={toggleDocument}
-              close={close}
-            />
           )}
           {modal?.type === 'password' && <PasswordForm close={close} />}
           {modal?.type === 'tfa' && (
@@ -751,27 +650,26 @@ function EditProfileForm({ profile, setProfile, close }) {
   const [name, setName] = useState(profile.name);
   const [phone, setPhone] = useState(profile.phone);
   const [email, setEmail] = useState(profile.email);
+  const [saving, setSaving] = useState(false);
   return (
     <>
       <ModalHeader title="Edit profile" close={close} />
       <FormField label="Full name" value={name} onChangeText={setName} />
-      <FormField
-        label="Phone"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-      />
-      <FormField
-        label="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-      />
+      <FormField label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+      <FormField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
       <PrimaryButton
-        label="Save changes"
-        onPress={() => {
-          setProfile((p) => ({ ...p, name, phone, email }));
-          close();
+        label={saving ? 'Saving…' : 'Save changes'}
+        onPress={async () => {
+          setSaving(true);
+          try {
+            await userApi.updateProfile({ name, phone, email });
+            setProfile((p) => ({ ...p, name, phone, email }));
+            close();
+          } catch (err) {
+            Alert.alert('Error', err.message || 'Could not save profile.');
+          } finally {
+            setSaving(false);
+          }
         }}
       />
     </>
@@ -780,6 +678,8 @@ function EditProfileForm({ profile, setProfile, close }) {
 
 function TopupForm({ addToWallet, close }) {
   const [amount, setAmount] = useState('500');
+  const [method] = useState('esewa');
+  const [saving, setSaving] = useState(false);
   const presets = [200, 500, 1000, 2000];
   return (
     <>
@@ -789,17 +689,9 @@ function TopupForm({ addToWallet, close }) {
           <Pressable
             key={p}
             onPress={() => setAmount(String(p))}
-            style={[
-              styles.presetChip,
-              Number(amount) === p && styles.presetChipActive,
-            ]}
+            style={[styles.presetChip, Number(amount) === p && styles.presetChipActive]}
           >
-            <Text
-              style={[
-                styles.presetText,
-                Number(amount) === p && styles.presetTextActive,
-              ]}
-            >
+            <Text style={[styles.presetText, Number(amount) === p && styles.presetTextActive]}>
               Rs {p}
             </Text>
           </Pressable>
@@ -812,11 +704,20 @@ function TopupForm({ addToWallet, close }) {
         keyboardType="number-pad"
       />
       <PrimaryButton
-        label={`Add Rs ${amount || 0}`}
-        onPress={() => {
+        label={saving ? 'Processing…' : `Add Rs ${amount || 0}`}
+        onPress={async () => {
           const num = Number(amount);
-          if (num > 0) addToWallet(num);
-          close();
+          if (num <= 0) return;
+          setSaving(true);
+          try {
+            await userApi.topUpWallet({ amount: num, method, gatewayRef: `manual-${Date.now()}` });
+            addToWallet(num);
+            close();
+          } catch (err) {
+            Alert.alert('Error', err.message || 'Top up failed.');
+          } finally {
+            setSaving(false);
+          }
         }}
       />
     </>
@@ -839,24 +740,27 @@ function SetOnMapButton({ onPress }) {
 }
 
 function EditAddressForm({ address, updateAddress, removeAddress, close }) {
-  const [value, setValue] = useState(address.address);
+  const [value, setValue] = useState(address.address || '');
   const [picker, setPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
   return (
     <>
       <ModalHeader title={`Edit ${address.label}`} close={close} />
       <FormField label="Address" value={value} onChangeText={setValue} />
       <SetOnMapButton onPress={() => setPicker(true)} />
       <PrimaryButton
-        label="Save"
-        onPress={() => {
-          updateAddress(address.label, value);
+        label={saving ? 'Saving…' : 'Save'}
+        onPress={async () => {
+          setSaving(true);
+          await updateAddress(address._id, { address: value });
+          setSaving(false);
           close();
         }}
       />
       <Pressable
         style={styles.dangerBtn}
-        onPress={() => {
-          removeAddress(address.label);
+        onPress={async () => {
+          await removeAddress(address._id);
           close();
         }}
       >
@@ -866,10 +770,7 @@ function EditAddressForm({ address, updateAddress, removeAddress, close }) {
         visible={picker}
         title={`Pin ${address.label}`}
         onCancel={() => setPicker(false)}
-        onConfirm={(addr) => {
-          setValue(addr);
-          setPicker(false);
-        }}
+        onConfirm={(addr) => { setValue(addr); setPicker(false); }}
       />
     </>
   );
@@ -879,6 +780,7 @@ function AddAddressForm({ addAddress, close }) {
   const [label, setLabel] = useState('');
   const [addr, setAddr] = useState('');
   const [picker, setPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
   return (
     <>
       <ModalHeader title="Add a place" close={close} />
@@ -886,61 +788,20 @@ function AddAddressForm({ addAddress, close }) {
       <FormField label="Address" value={addr} onChangeText={setAddr} />
       <SetOnMapButton onPress={() => setPicker(true)} />
       <PrimaryButton
-        label="Add place"
-        onPress={() => {
-          if (label.trim() && addr.trim()) {
-            addAddress(label.trim().toLowerCase(), addr.trim());
-            close();
-          }
+        label={saving ? 'Adding…' : 'Add place'}
+        onPress={async () => {
+          if (!label.trim() || !addr.trim()) return;
+          setSaving(true);
+          await addAddress(label.trim().toLowerCase(), addr.trim());
+          setSaving(false);
+          close();
         }}
       />
       <MapPicker
         visible={picker}
         title="Pin location"
         onCancel={() => setPicker(false)}
-        onConfirm={(a) => {
-          setAddr(a);
-          setPicker(false);
-        }}
-      />
-    </>
-  );
-}
-
-function DocViewer({ doc, toggleDocument, close }) {
-  return (
-    <>
-      <ModalHeader title={doc.label} close={close} />
-      <View style={styles.docPreview}>
-        <Ionicons name="document-text" size={60} color={colors.primary} />
-        <Text style={styles.docPreviewText}>
-          {doc.uploaded
-            ? 'Document preview unavailable in demo mode.'
-            : 'No document uploaded yet.'}
-        </Text>
-        <View
-          style={[
-            styles.docStatusPill,
-            doc.uploaded ? styles.statusActive : styles.statusInactive,
-          ]}
-        >
-          <View
-            style={[
-              styles.statusDot,
-              doc.uploaded ? styles.statusDotActive : styles.statusDotInactive,
-            ]}
-          />
-          <Text style={styles.statusPillText}>
-            {doc.uploaded ? 'Verified' : 'Pending upload'}
-          </Text>
-        </View>
-      </View>
-      <PrimaryButton
-        label={doc.uploaded ? 'Replace document' : 'Upload document'}
-        onPress={() => {
-          toggleDocument(doc.key);
-          close();
-        }}
+        onConfirm={(a) => { setAddr(a); setPicker(false); }}
       />
     </>
   );
@@ -951,40 +812,29 @@ function PasswordForm({ close }) {
   const [newPwd, setNewPwd] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   return (
     <>
       <ModalHeader title="Change password" close={close} />
-      <FormField
-        label="Current password"
-        value={oldPwd}
-        onChangeText={setOldPwd}
-        secure
-      />
-      <FormField
-        label="New password"
-        value={newPwd}
-        onChangeText={setNewPwd}
-        secure
-      />
-      <FormField
-        label="Confirm new password"
-        value={confirm}
-        onChangeText={setConfirm}
-        secure
-      />
+      <FormField label="Current password" value={oldPwd} onChangeText={setOldPwd} secure />
+      <FormField label="New password" value={newPwd} onChangeText={setNewPwd} secure />
+      <FormField label="Confirm new password" value={confirm} onChangeText={setConfirm} secure />
       {error ? <Text style={styles.formError}>{error}</Text> : null}
       <PrimaryButton
-        label="Update password"
-        onPress={() => {
-          if (newPwd.length < 8) {
-            setError('Password must be at least 8 characters.');
-            return;
+        label={saving ? 'Updating…' : 'Update password'}
+        onPress={async () => {
+          if (newPwd.length < 8) { setError('Password must be at least 8 characters.'); return; }
+          if (newPwd !== confirm) { setError('Passwords do not match.'); return; }
+          setSaving(true);
+          try {
+            await userApi.changePassword({ oldPassword: oldPwd, newPassword: newPwd });
+            Alert.alert('Success', 'Password updated successfully.');
+            close();
+          } catch (err) {
+            setError(err.message || 'Could not update password.');
+          } finally {
+            setSaving(false);
           }
-          if (newPwd !== confirm) {
-            setError('Passwords do not match.');
-            return;
-          }
-          close();
         }}
       />
     </>
@@ -1866,4 +1716,113 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 18,
   },
+
+  driverBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  driverBadgeText: { color: '#1a56db', fontSize: 12, fontWeight: '800' },
+
+  reviewBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1.5,
+    borderColor: '#fcd34d',
+  },
+  rejectedBanner: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  reviewBannerTitle: {
+    color: '#92400e',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  reviewBannerSub: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  becomeDriverCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1.5,
+    borderColor: '#bfdbfe',
+  },
+  becomeDriverLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  becomeDriverEmoji: { fontSize: 32 },
+  becomeDriverTitle: { color: '#1a56db', fontSize: 15, fontWeight: '800' },
+  becomeDriverSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 300,
+    backgroundColor: colors.background,
+  },
+
+  pendingRoot: { flex: 1 },
+  pendingInner: {
+    flex: 1,
+    paddingHorizontal: 28,
+    paddingTop: 80,
+    paddingBottom: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#f0fdf4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#bbf7d0',
+  },
+  pendingIconEmoji: { fontSize: 40 },
+  pendingTitle: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  pendingSub: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: 36,
+  },
+  pendingBtn: {
+    width: '100%',
+    paddingVertical: 15,
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  pendingBtnText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
 });
