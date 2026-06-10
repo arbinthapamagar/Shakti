@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
 const GENDER_OPTIONS = [
@@ -17,7 +18,8 @@ const GENDER_OPTIONS = [
   { value: 'other', label: 'Other' },
 ];
 
-export default function RegisterScreen({ onGoToLogin }) {
+export default function RegisterScreen({ onGoToLogin, onRegistered }) {
+  const { register } = useAuth();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -34,9 +36,7 @@ export default function RegisterScreen({ onGoToLogin }) {
     if (phone.trim().length < 7) return 'That phone number looks too short.';
     if (email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        return 'Email format does not look right.';
-      }
+      if (!emailRegex.test(email.trim())) return 'Email format does not look right.';
     }
     if (!gender) return 'Please choose a gender.';
     if (password.length < 8) return 'Password must be at least 8 characters.';
@@ -44,18 +44,30 @@ export default function RegisterScreen({ onGoToLogin }) {
     return '';
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     setError('');
-    const validation = validate();
-    if (validation) {
-      setError(validation);
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
       return;
     }
+
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      await register({
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+        gender,
+        password,
+        confirmPassword,
+      });
+      onRegistered(phone.trim());
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
       setSubmitting(false);
-      setError('Registration is not connected to the server yet.');
-    }, 700);
+    }
   };
 
   return (
@@ -86,6 +98,7 @@ export default function RegisterScreen({ onGoToLogin }) {
               placeholderTextColor={colors.textFaint}
               style={styles.input}
               autoCapitalize="words"
+              editable={!submitting}
             />
           </View>
 
@@ -98,6 +111,7 @@ export default function RegisterScreen({ onGoToLogin }) {
               placeholderTextColor={colors.textFaint}
               keyboardType="phone-pad"
               style={styles.input}
+              editable={!submitting}
             />
           </View>
 
@@ -113,6 +127,7 @@ export default function RegisterScreen({ onGoToLogin }) {
               keyboardType="email-address"
               autoCapitalize="none"
               style={styles.input}
+              editable={!submitting}
             />
           </View>
 
@@ -125,10 +140,8 @@ export default function RegisterScreen({ onGoToLogin }) {
                   <Pressable
                     key={opt.value}
                     onPress={() => setGender(opt.value)}
-                    style={[
-                      styles.genderChip,
-                      selected && styles.genderChipSelected,
-                    ]}
+                    style={[styles.genderChip, selected && styles.genderChipSelected]}
+                    disabled={submitting}
                   >
                     <Text
                       style={[
@@ -154,6 +167,7 @@ export default function RegisterScreen({ onGoToLogin }) {
                 placeholderTextColor={colors.textFaint}
                 secureTextEntry={!showPassword}
                 style={[styles.input, styles.passwordInput]}
+                editable={!submitting}
               />
               <Pressable
                 onPress={() => setShowPassword((v) => !v)}
@@ -176,6 +190,7 @@ export default function RegisterScreen({ onGoToLogin }) {
               placeholderTextColor={colors.textFaint}
               secureTextEntry={!showPassword}
               style={styles.input}
+              editable={!submitting}
             />
           </View>
 
@@ -191,7 +206,7 @@ export default function RegisterScreen({ onGoToLogin }) {
             disabled={submitting}
           >
             <Text style={styles.primaryButtonText}>
-              {submitting ? 'Creating account...' : 'Create account'}
+              {submitting ? 'Creating account…' : 'Create account'}
             </Text>
           </Pressable>
 
@@ -260,10 +275,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
   },
-  genderRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  genderRow: { flexDirection: 'row', gap: 8 },
   genderChip: {
     flex: 1,
     paddingVertical: 12,
@@ -277,15 +289,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
   },
-  genderChipText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  genderChipTextSelected: {
-    color: colors.primaryDark,
-    fontWeight: '600',
-  },
+  genderChipText: { color: colors.textMuted, fontSize: 14, fontWeight: '500' },
+  genderChipTextSelected: { color: colors.primaryDark, fontWeight: '600' },
   passwordRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -298,16 +303,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 6,
   },
-  toggleText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  error: {
-    color: colors.danger,
-    fontSize: 13,
-    marginBottom: 12,
-  },
+  toggleText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
+  error: { color: colors.danger, fontSize: 13, marginBottom: 12 },
   primaryButton: {
     backgroundColor: colors.primary,
     paddingVertical: 14,
@@ -317,11 +314,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonPressed: { backgroundColor: colors.primaryDark },
   primaryButtonDisabled: { opacity: 0.6 },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  primaryButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
   legal: {
     color: colors.textFaint,
     fontSize: 12,
