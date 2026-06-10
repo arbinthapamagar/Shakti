@@ -1,4 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import {
+  Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,6 +41,7 @@ export default function ActiveTripSheet({
   tripStatus,
   onComplete,
   onCancel,
+  onRate,
 }) {
   const initials = driver.name
     .split(' ')
@@ -81,15 +85,30 @@ export default function ActiveTripSheet({
         </View>
 
         <View style={styles.actions}>
-          <Pressable style={styles.actionBtn}>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => {
+              if (driver.phone) {
+                Linking.openURL(`tel:${driver.phone}`);
+              } else {
+                Alert.alert('Call Driver', 'Driver phone number is not available.');
+              }
+            }}
+          >
             <CallIcon size={16} color={colors.primary} />
             <Text style={styles.actionText}>Call</Text>
           </Pressable>
-          <Pressable style={styles.actionBtn}>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => Alert.alert('Message', 'In-trip messaging is available once the driver arrives.')}
+          >
             <ChatIcon size={16} color="#5c6fff" />
             <Text style={styles.actionText}>Message</Text>
           </Pressable>
-          <Pressable style={styles.actionBtn}>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => Alert.alert('Share Trip', 'Trip sharing coming soon.')}
+          >
             <ShareIcon size={16} color={colors.text} />
             <Text style={styles.actionText}>Share</Text>
           </Pressable>
@@ -102,14 +121,19 @@ export default function ActiveTripSheet({
           <DetailRow label="Agreed fare" value={`Rs ${bid.amount}`} bold last />
         </View>
 
-        {tripStatus === 'started' ? (
+        {tripStatus === 'completed' ? (
           <Button
-            label="Mark trip complete"
-            onPress={onComplete}
+            label="Rate & Close"
+            onPress={onRate ?? onComplete}
             style={{ marginTop: spacing.md + 2 }}
           />
+        ) : tripStatus === 'started' ? (
+          <View style={styles.inProgress}>
+            <Text style={styles.inProgressText}>Trip in progress · your driver will complete the ride</Text>
+          </View>
         ) : (
           <Pressable style={styles.cancel} onPress={onCancel}>
+            <Ionicons name="close-circle-outline" size={16} color={colors.danger} />
             <Text style={styles.cancelText}>Cancel ride</Text>
           </Pressable>
         )}
@@ -202,6 +226,24 @@ const styles = StyleSheet.create({
   },
   rowValueBold: { fontSize: 16, fontWeight: '800' },
 
-  cancel: { marginTop: spacing.md + 2, paddingVertical: spacing.md, alignItems: 'center' },
-  cancelText: { color: colors.danger, fontSize: 14, fontWeight: '600' },
+  cancel: {
+    marginTop: spacing.md + 2,
+    paddingVertical: spacing.md + 2,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  cancelText: { color: colors.danger, fontSize: 14, fontWeight: '700' },
+  inProgress: {
+    marginTop: spacing.md + 2,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    backgroundColor: '#f3f5f2',
+    borderRadius: radius.md,
+  },
+  inProgressText: { color: colors.textMuted, fontSize: 13, fontWeight: '600', textAlign: 'center' },
 });
