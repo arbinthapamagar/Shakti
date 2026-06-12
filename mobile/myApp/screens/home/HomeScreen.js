@@ -1,8 +1,15 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapPicker from '../../components/MapPicker';
-import { NEARBY_DRIVERS, VEHICLE_TYPES } from '../../data/mockData';
 import { colors, shadow } from '../../theme';
 import ActiveTripSheet from './ActiveTripSheet';
 import BiddingSheet from './BiddingSheet';
@@ -10,25 +17,18 @@ import HomeView from './HomeView';
 import Map from './Map';
 import OptionsSheet from './OptionsSheet';
 import SearchSheet from './SearchSheet';
-import useRideFlow from './useRideFlow';
+import useRideFlow, { VEHICLE_TYPES } from './useRideFlow';
 
-/**
- * Top-level home/ride orchestrator.
- *
- * The flow is a state machine owned by `useRideFlow`. This component does
- * three things only:
- *   1. delegate the `home` step to `HomeView` (its own layout)
- *   2. on any other step, show the live `Map` behind a bottom Sheet
- *   3. dispatch the correct Sheet for the current step
- */
 export default function HomeScreen() {
   const flow = useRideFlow();
   const {
     step,
     pickup,
     setPickup,
+    setPickupCoords,
     destination,
     setDestination,
+    setDestCoords,
     vehicleId,
     setVehicleId,
     offeredPrice,
@@ -41,15 +41,17 @@ export default function HomeScreen() {
     reset,
     requestRide,
     acceptBid,
+    bids,
+    creatingTrip,
+    tripError,
+    tripId,
   } = flow;
 
-  // Which field the map picker is editing — 'pickup' or 'dest'.
   const [mapTarget, setMapTarget] = useState('dest');
 
-  // Defaults to Rickshaw and seeds the offer with its base fare so the
-  // confirm button is active the instant the user lands on Options.
-  const goToOptions = (dest) => {
+  const goToOptions = (dest, coords = null) => {
     setDestination(dest);
+    if (coords) setDestCoords(coords);
     const rickshaw = VEHICLE_TYPES.find((v) => v.id === 'tuktuk');
     if (rickshaw) {
       setVehicleId('tuktuk');
@@ -73,8 +75,19 @@ export default function HomeScreen() {
   }
 
   const vehicle = VEHICLE_TYPES.find((v) => v.id === vehicleId);
-  const acceptedDriver = acceptedBid
-    ? NEARBY_DRIVERS.find((d) => d._id === acceptedBid.driverId)
+
+  // Extract driver info from the accepted bid's populated driverId field
+  const acceptedDriver = acceptedBid?.driverId
+    ? {
+        name: acceptedBid.driverId.userId?.name || 'Driver',
+        vehicleType: acceptedBid.driverId.vehicleType || 'tuktuk',
+        vehicleColor: acceptedBid.driverId.vehicleColor || '',
+        vehicleModel: acceptedBid.driverId.vehicleModel || '',
+        vehiclePlate: acceptedBid.driverId.vehiclePlate || '',
+        rating: acceptedBid.driverId.rating ?? 0,
+        eta: 5,
+        phone: acceptedBid.driverId.userId?.phone,
+      }
     : null;
 
   return (
@@ -97,9 +110,11 @@ export default function HomeScreen() {
           <SearchSheet
             pickup={pickup}
             setPickup={setPickup}
+            setPickupCoords={setPickupCoords}
             destination={destination}
             setDestination={setDestination}
             onPick={goToOptions}
+            onBack={goBack}
             onSubmit={() => destination.trim() && goToOptions(destination)}
             onPickPickupOnMap={() => openMapFor('pickup')}
             onPickDestOnMap={() => openMapFor('dest')}
@@ -110,34 +125,44 @@ export default function HomeScreen() {
           visible={step === 'map-pick'}
           title={mapTarget === 'pickup' ? 'Pickup' : 'Drop-off'}
           onCancel={() => setStep('search')}
-          onConfirm={(label) => {
+          onConfirm={({ address, coords }) => {
             if (mapTarget === 'pickup') {
-              setPickup(label);
+              setPickup(address);
+              setPickupCoords(coords);
               setStep('search');
             } else {
-              goToOptions(label);
+              goToOptions(address, coords);
             }
           }}
         />
 
         {step === 'options' && (
-          <OptionsSheet
-            pickup={pickup}
-            destination={destination}
-            vehicleId={vehicleId}
-            setVehicleId={setVehicleId}
-            offeredPrice={offeredPrice}
-            setOfferedPrice={setOfferedPrice}
-            onConfirm={requestRide}
-          />
+          <>
+            {tripError ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorBannerText}>{tripError}</Text>
+              </View>
+            ) : null}
+            <OptionsSheet
+              pickup={pickup}
+              destination={destination}
+              vehicleId={vehicleId}
+              setVehicleId={setVehicleId}
+              offeredPrice={offeredPrice}
+              setOfferedPrice={setOfferedPrice}
+              onConfirm={requestRide}
+              loading={creatingTrip}
+            />
+          </>
         )}
 
         {step === 'bidding' && (
           <BiddingSheet
             vehicle={vehicle}
             offeredPrice={Number(offeredPrice)}
+            bids={bids}
             onAccept={acceptBid}
-            onCancel={() => setStep('options')}
+            onCancel={goBack}
           />
         )}
 
@@ -186,4 +211,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'flex-end',
   },
+  errorBanner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: '#fef2f2',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorBannerText: { color: colors.danger, fontSize: 13, fontWeight: '500' },
 });

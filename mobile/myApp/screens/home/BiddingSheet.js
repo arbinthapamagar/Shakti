@@ -1,5 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   Pressable,
@@ -11,10 +13,7 @@ import {
 import { VehiclePhoto } from '../../components/Brand';
 import { StarIcon } from '../../components/Icons';
 import { Sheet } from '../../components/ui';
-import { BIDS, NEARBY_DRIVERS } from '../../data/mockData';
 import { colors, radius, spacing, type } from '../../theme';
-
-const BID_STAGGER_MS = 1200;
 
 function diffLabel(amount, offered) {
   const diff = amount - offered;
@@ -29,10 +28,18 @@ function diffStyle(amount, offered) {
   return styles.diffLow;
 }
 
-export default function BiddingSheet({ vehicle, offeredPrice, onAccept, onCancel }) {
+function getInitials(name = '') {
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+export default function BiddingSheet({ vehicle, offeredPrice, bids = [], onAccept, onCancel, timeoutSeconds = 300 }) {
   const pulse = useRef(new Animated.Value(0)).current;
-  const [bids, setBids] = useState([]);
-  const [seconds, setSeconds] = useState(0);
+  const [remaining, setRemaining] = useState(timeoutSeconds);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -48,17 +55,16 @@ export default function BiddingSheet({ vehicle, offeredPrice, onAccept, onCancel
   }, [pulse]);
 
   useEffect(() => {
-    const timers = BIDS.map((b, i) =>
-      setTimeout(() => {
-        setBids((prev) => [...prev, b]);
-      }, BID_STAGGER_MS * (i + 1)),
-    );
-    const tick = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => {
-      timers.forEach(clearTimeout);
-      clearInterval(tick);
-    };
-  }, []);
+    setRemaining(timeoutSeconds);
+    const tick = setInterval(() => setRemaining((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(tick);
+  }, [timeoutSeconds]);
+
+  function formatRemaining(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  }
 
   const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.6] });
   const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] });
@@ -73,7 +79,9 @@ export default function BiddingSheet({ vehicle, offeredPrice, onAccept, onCancel
           </Text>
         </View>
         <View style={styles.timer}>
-          <Text style={styles.timerText}>{seconds}s</Text>
+          <Text style={[styles.timerText, remaining < 60 && { color: 'red' }]}>
+            {formatRemaining(remaining)}
+          </Text>
         </View>
       </View>
 
@@ -86,36 +94,47 @@ export default function BiddingSheet({ vehicle, offeredPrice, onAccept, onCancel
 
       <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: spacing.sm }}>
         {bids.length === 0 ? (
-          <Text style={styles.waiting}>Waiting for drivers nearby…</Text>
+          <View style={styles.waitingRow}>
+            {remaining === 0 ? (
+              <Text style={styles.waiting}>No drivers found. Please try again.</Text>
+            ) : (
+              <>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.waiting}>Waiting for drivers nearby…</Text>
+              </>
+            )}
+          </View>
         ) : (
           bids.map((b) => {
-            const driver = NEARBY_DRIVERS.find((d) => d._id === b.driverId);
-            if (!driver) return null;
-            const initials = driver.name
-              .split(' ')
-              .map((p) => p[0])
-              .join('')
-              .slice(0, 2);
+            const driver = b.driverId || {};
+            const driverName = driver.userId?.name || 'Driver';
+            const initials = getInitials(driverName);
+            const rating = driver.rating ?? 0;
+            const vehicleColor = driver.vehicleColor || '';
+            const vehicleModel = driver.vehicleModel || '';
+            const vehiclePlate = driver.vehiclePlate || '';
+            const vehicleType = driver.vehicleType || vehicle?.id;
+
             return (
               <View key={b._id} style={styles.bidCard}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{initials}</Text>
                   <View style={styles.avatarBadge}>
-                    <VehiclePhoto type={driver.vehicleType} size={20} />
+                    <VehiclePhoto type={vehicleType} size={20} />
                   </View>
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.bidTopRow}>
-                    <Text style={styles.bidName}>{driver.name}</Text>
-                    <View style={styles.ratingPill}>
-                      <StarIcon size={11} />
-                      <Text style={styles.ratingText}>
-                        {driver.rating.toFixed(2)}
-                      </Text>
-                    </View>
+                    <Text style={styles.bidName}>{driverName}</Text>
+                    {rating > 0 && (
+                      <View style={styles.ratingPill}>
+                        <StarIcon size={11} />
+                        <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+                      </View>
+                    )}
                   </View>
                   <Text style={styles.bidMeta} numberOfLines={1}>
-                    {driver.vehicleColor} {driver.vehicleModel} · {driver.eta} min away
+                    {[vehicleColor, vehicleModel, vehiclePlate].filter(Boolean).join(' · ')}
                   </Text>
                   {b.message ? (
                     <Text style={styles.bidMessage}>"{b.message}"</Text>
@@ -137,6 +156,7 @@ export default function BiddingSheet({ vehicle, offeredPrice, onAccept, onCancel
       </ScrollView>
 
       <Pressable style={styles.cancel} onPress={onCancel}>
+        <Ionicons name="close-circle-outline" size={16} color={colors.danger} />
         <Text style={styles.cancelText}>Cancel request</Text>
       </Pressable>
     </Sheet>
@@ -183,11 +203,17 @@ const styles = StyleSheet.create({
     borderColor: '#ffffff',
   },
 
+  waitingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: spacing.lg,
+  },
   waiting: {
     color: colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
-    marginTop: spacing.lg,
   },
 
   bidCard: {
@@ -254,6 +280,16 @@ const styles = StyleSheet.create({
   },
   acceptText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
 
-  cancel: { marginTop: spacing.md - 2, paddingVertical: spacing.md + 2, alignItems: 'center' },
-  cancelText: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  cancel: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.md + 2,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  cancelText: { color: colors.danger, fontSize: 14, fontWeight: '700' },
 });
