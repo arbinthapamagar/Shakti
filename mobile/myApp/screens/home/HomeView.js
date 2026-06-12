@@ -11,7 +11,7 @@ import {
 import { VehiclePhoto } from '../../components/Brand';
 import { pick as hapticPick } from '../../components/haptics';
 import { ChevronIcon, SearchIcon } from '../../components/Icons';
-import { CURRENT_USER } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
 import { colors, radius, shadow, spacing, STATUS_TOP_PAD, type } from '../../theme';
 import BrandLogo from './BrandLogo';
 import Map from './Map';
@@ -34,6 +34,8 @@ function savedPlaceIcon(label) {
 }
 
 export default function HomeView({ onTapSearch, onPickSaved }) {
+  const { user } = useAuth();
+  const savedAddresses = user?.savedAddresses || [];
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState('rickshaw');
 
@@ -106,7 +108,7 @@ export default function HomeView({ onTapSearch, onPickSaved }) {
         </View>
 
         <View style={styles.savedList}>
-          {CURRENT_USER.savedAddresses.slice(0, 2).map((s, i, arr) => (
+          {savedAddresses.slice(0, 2).map((s, i, arr) => (
             <Pressable
               key={s.label}
               style={[
