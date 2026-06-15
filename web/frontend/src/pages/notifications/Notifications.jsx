@@ -132,7 +132,7 @@ export default function Notifications() {
                 <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wide">Preview</p>
                 <div className="bg-slate-800 rounded-xl p-4 shadow-lg max-w-sm">
                   <div className="flex items-start gap-3">
-                    <div className="bg-indigo-600 rounded-lg p-2 shrink-0">
+                    <div className="bg-orange-600 rounded-lg p-2 shrink-0">
                       <TargetIcon className="h-4 w-4 text-white" />
                     </div>
                     <div>
@@ -163,8 +163,8 @@ export default function Notifications() {
               <div className="space-y-3">
                 {sent.map((n, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="bg-indigo-100 rounded-lg p-1.5 shrink-0">
-                      <Bell className="h-4 w-4 text-indigo-600" />
+                    <div className="bg-orange-100 rounded-lg p-1.5 shrink-0">
+                      <Bell className="h-4 w-4 text-orange-600" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900">{n.title}</p>
@@ -188,9 +188,9 @@ export default function Notifications() {
                 <button
                   key={i}
                   onClick={() => applyTemplate(tpl)}
-                  className="w-full text-left p-3 border border-gray-100 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 transition-colors group"
+                  className="w-full text-left p-3 border border-gray-100 rounded-lg hover:bg-orange-50 hover:border-orange-200 transition-colors group"
                 >
-                  <p className="text-sm font-medium text-gray-800 group-hover:text-indigo-700">{tpl.title}</p>
+                  <p className="text-sm font-medium text-gray-800 group-hover:text-orange-700">{tpl.title}</p>
                   <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{tpl.body}</p>
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full capitalize">{tpl.target}</span>
@@ -201,9 +201,9 @@ export default function Notifications() {
             </div>
           </div>
 
-          <div className="bg-indigo-50 rounded-xl p-5 border border-indigo-100">
-            <h4 className="text-sm font-semibold text-indigo-800 mb-2">Tips</h4>
-            <ul className="space-y-2 text-xs text-indigo-700">
+          <div className="bg-orange-50 rounded-xl p-5 border border-orange-100">
+            <h4 className="text-sm font-semibold text-orange-800 mb-2">Tips</h4>
+            <ul className="space-y-2 text-xs text-orange-700">
               <li>• Keep titles under 60 characters</li>
               <li>• Messages should be concise and actionable</li>
               <li>• Use templates for common announcements</li>

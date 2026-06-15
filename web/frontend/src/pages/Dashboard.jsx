@@ -112,7 +112,7 @@ export default function Dashboard() {
               <h3 className="text-sm font-semibold text-gray-900">Weekly Performance</h3>
               <p className="text-xs text-gray-400">Trips and revenue over the last 7 days</p>
             </div>
-            <TrendingUp className="h-5 w-5 text-indigo-400 shrink-0" />
+            <TrendingUp className="h-5 w-5 text-orange-400 shrink-0" />
           </div>
           {tripsChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
@@ -135,7 +135,7 @@ export default function Dashboard() {
             </div>
           )}
           <div className="flex gap-4 mt-2 justify-center">
-            <span className="flex items-center gap-1.5 text-xs text-gray-500"><span className="h-2 w-4 bg-indigo-500 rounded" />Trips</span>
+            <span className="flex items-center gap-1.5 text-xs text-gray-500"><span className="h-2 w-4 bg-orange-500 rounded" />Trips</span>
             <span className="flex items-center gap-1.5 text-xs text-gray-500"><span className="h-2 w-4 bg-emerald-500 rounded" />Revenue</span>
           </div>
         </div>
@@ -209,7 +209,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-gray-50">
             <h3 className="text-sm font-semibold text-gray-900">Recent Trips</h3>
-            <Link to="/trips" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View all →</Link>
+            <Link to="/trips" className="text-xs text-orange-600 hover:text-orange-700 font-medium">View all →</Link>
           </div>
           <DataTable
             columns={tripColumns}
@@ -225,9 +225,9 @@ export default function Dashboard() {
           <div className="space-y-2">
             {[
               { to: '/documents', icon: FileText, label: 'Review Documents', desc: stats.pendingDocuments ? `${stats.pendingDocuments} pending` : 'Check queue', color: 'text-amber-600 bg-amber-50' },
-              { to: '/drivers?status=pending', icon: Car, label: 'Approve Drivers', desc: stats.pendingDrivers ? `${stats.pendingDrivers} waiting` : 'Check queue', color: 'text-blue-600 bg-blue-50' },
+              { to: '/drivers?status=pending', icon: Car, label: 'Approve Drivers', desc: stats.pendingDrivers ? `${stats.pendingDrivers} waiting` : 'Check queue', color: 'text-orange-600 bg-orange-50' },
               { to: '/support?status=open', icon: MessageSquare, label: 'Support Tickets', desc: stats.openTickets ? `${stats.openTickets} open` : 'All clear', color: 'text-rose-600 bg-rose-50' },
-              { to: '/analytics', icon: TrendingUp, label: 'View Analytics', desc: 'Insights & reports', color: 'text-indigo-600 bg-indigo-50' },
+              { to: '/analytics', icon: TrendingUp, label: 'View Analytics', desc: 'Insights & reports', color: 'text-orange-600 bg-orange-50' },
             ].map((item) => (
               <Link
                 key={item.to}

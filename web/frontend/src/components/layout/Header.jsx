@@ -55,15 +55,19 @@ export function Header({ onMenuClick }) {
           <Bell className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex items-center gap-2 rounded-lg p-1 hover:bg-orange-50 transition-colors"
+            title="View my profile"
+          >
             <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-              <User className="h-4 w-4 text-orange-400" />
+              <User className="h-4 w-4 text-orange-500" />
             </div>
-            <div className="hidden sm:block">
+            <div className="hidden sm:block text-left">
               <p className="text-sm font-medium text-gray-700 leading-tight">{admin?.name}</p>
               <p className="text-xs text-gray-400 capitalize">{admin?.role}</p>
             </div>
-          </div>
+          </button>
           <button
             onClick={handleLogout}
             className="p-2 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors ml-1"

@@ -99,7 +99,7 @@ export default function TicketDetail() {
                       <div
                         className={`px-4 py-3 rounded-2xl text-sm ${
                           isAdmin
-                            ? 'bg-indigo-600 text-white rounded-tr-sm'
+                            ? 'bg-orange-600 text-white rounded-tr-sm'
                             : 'bg-gray-100 text-gray-800 rounded-tl-sm'
                         }`}
                       >
@@ -121,7 +121,7 @@ export default function TicketDetail() {
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder="Type your reply..."
                     rows={3}
-                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && e.ctrlKey && message.trim()) {
                         replyMutation.mutate(message)
@@ -131,7 +131,7 @@ export default function TicketDetail() {
                   <button
                     onClick={() => message.trim() && replyMutation.mutate(message)}
                     disabled={!message.trim() || replyMutation.isPending}
-                    className="self-end px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    className="self-end px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
                   >
                     <Send className="h-4 w-4" />
                   </button>

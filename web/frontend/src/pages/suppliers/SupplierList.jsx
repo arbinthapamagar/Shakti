@@ -47,7 +47,7 @@ export default function SupplierList() {
   })
 
   const suppliers = data?.data?.suppliers || data?.data || []
-  const pagination = data?.data?.pagination || { total: 0, totalPages: 1 }
+  const pagination = data?.pagination || { total: 0, pages: 1, page: 1, limit: 20 }
 
   const columns = [
     {
@@ -58,8 +58,8 @@ export default function SupplierList() {
           {row.logoUrl ? (
             <img src={row.logoUrl} alt={val} className="h-8 w-8 rounded-lg object-cover" />
           ) : (
-            <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Building2 className="h-4 w-4 text-purple-600" />
+            <div className="h-8 w-8 rounded-lg bg-orange-100 flex items-center justify-center">
+              <Building2 className="h-4 w-4 text-orange-600" />
             </div>
           )}
           <div>
@@ -115,7 +115,7 @@ export default function SupplierList() {
       header: 'Actions',
       render: (id, row) => (
         <div className="flex items-center gap-1">
-          <button onClick={(e) => { e.stopPropagation(); setSelected(row) }} className="p-1.5 hover:bg-indigo-50 rounded text-gray-400 hover:text-indigo-600">
+          <button onClick={(e) => { e.stopPropagation(); setSelected(row) }} className="p-1.5 hover:bg-orange-50 rounded text-gray-400 hover:text-orange-600">
             <Eye className="h-4 w-4" />
           </button>
           {!row.isVerified && (
@@ -157,7 +157,7 @@ export default function SupplierList() {
         <DataTable columns={columns} data={suppliers} isLoading={isLoading} emptyTitle="No suppliers found" onRowClick={setSelected} />
 
         {pagination.total > 0 && (
-          <Pagination page={page} totalPages={pagination.totalPages} total={pagination.total} limit={20} onPageChange={setPage} />
+          <Pagination page={page} totalPages={pagination.pages} total={pagination.total} limit={20} onPageChange={setPage} />
         )}
       </div>
 
@@ -201,7 +201,7 @@ function SupplierDetail({ supplier }) {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-800">{v.brand} {v.model} <span className="capitalize text-gray-400">({v.type})</span></p>
-                    <p className="text-sm text-indigo-600 font-semibold mt-0.5">
+                    <p className="text-sm text-orange-600 font-semibold mt-0.5">
                       NPR {v.price?.toLocaleString()} / {v.priceType}
                     </p>
                   </div>

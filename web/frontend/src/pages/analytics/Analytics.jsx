@@ -115,7 +115,7 @@ export default function Analytics() {
             <h3 className="text-sm font-semibold text-gray-900">Trips & Revenue Trend</h3>
             <p className="text-xs text-gray-400">Performance over selected period</p>
           </div>
-          <TrendingUp className="h-5 w-5 text-indigo-400 shrink-0" />
+          <TrendingUp className="h-5 w-5 text-orange-400 shrink-0" />
         </div>
         {tripsLoading ? (
           <div className="h-64 flex items-center justify-center text-sm text-gray-400">Loading...</div>
@@ -215,7 +215,7 @@ export default function Analytics() {
               <tbody>
                 {topDrivers.map((driver, i) => (
                   <tr key={driver._id || i} className="border-b border-gray-50 last:border-0">
-                    <td className="py-3 text-sm font-bold text-indigo-600">#{i + 1}</td>
+                    <td className="py-3 text-sm font-bold text-orange-600">#{i + 1}</td>
                     <td className="py-3">
                       <div>
                         <p className="text-sm font-medium text-gray-800">{driver.name}</p>

@@ -37,17 +37,17 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-indigo-600 rounded-2xl p-3 mb-4 shadow-lg shadow-indigo-500/30">
+          <div className="bg-orange-600 rounded-2xl p-3 mb-4 shadow-lg shadow-orange-500/30">
             <Zap className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Shakti Admin</h1>
-          <p className="text-slate-400 text-sm mt-1">Sign in to manage your platform</p>
+          <h1 className="text-2xl font-bold text-gray-900">Shakti Admin</h1>
+          <p className="text-gray-500 text-sm mt-1">Sign in to manage your platform</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8">
+        <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border border-orange-100">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">Sign in to your account</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -58,7 +58,7 @@ export default function Login() {
                 <input
                   type="email"
                   placeholder="admin@shakti.com"
-                  className={`w-full pl-9 pr-3 py-2.5 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                  className={`w-full pl-9 pr-3 py-2.5 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
                     errors.email ? 'border-red-500' : 'border-gray-300'
                   }`}
                   {...register('email')}
@@ -74,7 +74,7 @@ export default function Login() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
-                  className={`w-full pl-9 pr-10 py-2.5 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                  className={`w-full pl-9 pr-10 py-2.5 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
                     errors.password ? 'border-red-500' : 'border-gray-300'
                   }`}
                   {...register('password')}
@@ -93,7 +93,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {isSubmitting && (
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

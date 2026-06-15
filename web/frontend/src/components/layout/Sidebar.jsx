@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Car, Navigation, Repeat, CreditCard, FileText,
   MessageSquare, Building2, BarChart2, Shield, Bell, ChevronRight, Zap, X
@@ -53,6 +53,7 @@ const navSections = [
 
 export function Sidebar({ open, onClose }) {
   const { admin } = useAuthStore()
+  const navigate = useNavigate()
 
   return (
     <>
@@ -126,7 +127,11 @@ export function Sidebar({ open, onClose }) {
 
         {/* Admin info */}
         <div className="border-t border-gray-200 p-4">
-          <div className="flex items-center gap-3">
+          <button
+            onClick={() => { navigate('/profile'); onClose?.() }}
+            className="flex items-center gap-3 w-full text-left rounded-lg p-1 -m-1 hover:bg-orange-50 transition-colors"
+            title="View my profile"
+          >
             <div className="h-8 w-8 rounded-full bg-orange-500 flex items-center justify-center text-xs font-bold text-white shrink-0">
               {admin?.name?.charAt(0)?.toUpperCase() || 'A'}
             </div>
@@ -134,7 +139,7 @@ export function Sidebar({ open, onClose }) {
               <p className="text-sm font-medium text-gray-900 truncate">{admin?.name || 'Admin'}</p>
               <p className="text-xs text-gray-500 capitalize">{admin?.role || 'admin'}</p>
             </div>
-          </div>
+          </button>
         </div>
       </aside>
     </>

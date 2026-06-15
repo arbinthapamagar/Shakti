@@ -39,7 +39,7 @@ export default function SubscriptionList() {
   })
 
   const subs = data?.data?.subscriptions || data?.data || []
-  const pagination = data?.data?.pagination || { total: 0, totalPages: 1 }
+  const pagination = data?.pagination || { total: 0, pages: 1, page: 1, limit: 20 }
 
   const tabs = [
     { value: '', label: 'All' },
@@ -111,7 +111,7 @@ export default function SubscriptionList() {
     {
       key: 'monthlyPrice',
       header: 'Monthly',
-      render: (val) => <span className="font-medium text-indigo-600">{formatCurrency(val)}</span>,
+      render: (val) => <span className="font-medium text-orange-600">{formatCurrency(val)}</span>,
     },
     {
       key: 'status',
@@ -133,7 +133,7 @@ export default function SubscriptionList() {
       header: 'Actions',
       render: (id, row) => (
         <div className="flex items-center gap-1">
-          <button onClick={(e) => { e.stopPropagation(); setSelected(row) }} className="p-1.5 hover:bg-indigo-50 rounded text-gray-400 hover:text-indigo-600">
+          <button onClick={(e) => { e.stopPropagation(); setSelected(row) }} className="p-1.5 hover:bg-orange-50 rounded text-gray-400 hover:text-orange-600">
             <Eye className="h-4 w-4" />
           </button>
           {row.status === 'active' && (
@@ -175,7 +175,7 @@ export default function SubscriptionList() {
         <DataTable columns={columns} data={subs} isLoading={isLoading} emptyTitle="No subscriptions found" onRowClick={setSelected} />
 
         {pagination.total > 0 && (
-          <Pagination page={page} totalPages={pagination.totalPages} total={pagination.total} limit={20} onPageChange={setPage} />
+          <Pagination page={page} totalPages={pagination.pages} total={pagination.total} limit={20} onPageChange={setPage} />
         )}
       </div>
 

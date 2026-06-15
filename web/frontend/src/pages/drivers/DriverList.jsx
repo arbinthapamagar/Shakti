@@ -62,7 +62,7 @@ export default function DriverList() {
   })
 
   const drivers = data?.data?.drivers || data?.data || []
-  const pagination = data?.data?.pagination || { total: 0, totalPages: 1 }
+  const pagination = data?.pagination || { total: 0, pages: 1, page: 1, limit: 20 }
 
   const tabs = [
     { value: '', label: 'All' },
@@ -124,7 +124,7 @@ export default function DriverList() {
         <div className="flex items-center gap-1">
           <button
             onClick={(e) => { e.stopPropagation(); navigate(`/drivers/${id}`) }}
-            className="p-1.5 hover:bg-indigo-50 rounded text-gray-400 hover:text-indigo-600"
+            className="p-1.5 hover:bg-orange-50 rounded text-gray-400 hover:text-orange-600"
             title="View Details"
           >
             <Eye className="h-4 w-4" />
@@ -219,7 +219,7 @@ export default function DriverList() {
         {pagination.total > 0 && (
           <Pagination
             page={page}
-            totalPages={pagination.totalPages}
+            totalPages={pagination.pages}
             total={pagination.total}
             limit={20}
             onPageChange={setPage}

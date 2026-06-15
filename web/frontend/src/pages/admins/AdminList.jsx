@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Edit, Trash2, ToggleLeft, ToggleRight, Shield,
   Users, Car, Navigation, CreditCard, FileText, MessageSquare,
-  ShieldCheck, BarChart2, Repeat, Building2, CheckCircle, XCircle, Info
+  ShieldCheck, BarChart2, Repeat, Building2, CheckCircle, XCircle, Info,
+  Mail, Phone, Calendar, Clock, Eye
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,6 +20,7 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { Badge } from '../../components/ui/Badge'
 import { adminsApi } from '../../api/admins.api'
+import { authApi } from '../../api/auth.api'
 import { formatDate, formatRelative } from '../../utils/format'
 import { useAuthStore } from '../../store/authStore'
 import toast from 'react-hot-toast'
@@ -131,24 +133,38 @@ const ROLE_PRESETS = {
 }
 
 const ICON_COLORS = {
-  indigo: 'bg-indigo-50 text-indigo-600',
-  blue: 'bg-blue-50 text-blue-600',
-  purple: 'bg-purple-50 text-purple-600',
+  indigo: 'bg-orange-50 text-orange-600',
+  blue: 'bg-orange-50 text-orange-600',
+  purple: 'bg-orange-50 text-orange-600',
   emerald: 'bg-emerald-50 text-emerald-600',
   amber: 'bg-amber-50 text-amber-600',
   rose: 'bg-rose-50 text-rose-600',
   red: 'bg-red-50 text-red-600',
   teal: 'bg-teal-50 text-teal-600',
-  violet: 'bg-violet-50 text-violet-600',
+  violet: 'bg-orange-50 text-orange-600',
   orange: 'bg-orange-50 text-orange-600',
 }
 
 export default function AdminList() {
-  const { admin: currentAdmin } = useAuthStore()
+  const { admin: currentAdmin, updateAdmin } = useAuthStore()
   const qc = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [editAdmin, setEditAdmin] = useState(null)
   const [deleteAdmin, setDeleteAdmin] = useState(null)
+  const [viewAdmin, setViewAdmin] = useState(null)
+  const [editProfile, setEditProfile] = useState(false)
+
+  const profileMutation = useMutation({
+    mutationFn: authApi.updateProfile,
+    onSuccess: (res) => {
+      const updated = res?.data || res
+      updateAdmin(updated)
+      qc.invalidateQueries({ queryKey: ['admins'] })
+      toast.success('Profile updated')
+      setEditProfile(false)
+    },
+    onError: (err) => toast.error(err?.message || 'Failed to update profile'),
+  })
 
   const { data, isLoading } = useQuery({
     queryKey: ['admins'],
@@ -205,7 +221,7 @@ export default function AdminList() {
       key: 'permissions',
       header: 'Access',
       render: (val, row) => {
-        if (row.role === 'superadmin') return <span className="text-xs text-indigo-600 font-medium">Full Access</span>
+        if (row.role === 'superadmin') return <span className="text-xs text-orange-600 font-medium">Full Access</span>
         const active = PERMISSIONS.filter((p) => val?.[p.key])
         return (
           <div className="flex flex-wrap gap-1 max-w-[200px]">
@@ -240,13 +256,23 @@ export default function AdminList() {
       key: '_id',
       header: 'Actions',
       render: (id, row) => {
-        if (row._id === currentAdmin?._id) return <span className="text-xs text-indigo-500 font-medium">You</span>
-        if (row.role === 'superadmin') return <span className="text-xs text-gray-300">—</span>
+        const viewBtn = (
+          <button
+            onClick={(e) => { e.stopPropagation(); setViewAdmin(row) }}
+            className="p-1.5 hover:bg-orange-50 rounded text-gray-400 hover:text-orange-600"
+            title="View details"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+        )
+        if (row._id === currentAdmin?._id) return <div className="flex items-center gap-1">{viewBtn}<span className="text-xs text-orange-500 font-medium">You</span></div>
+        if (row.role === 'superadmin') return <div className="flex items-center gap-1">{viewBtn}</div>
         return (
           <div className="flex items-center gap-1">
+            {viewBtn}
             <button
               onClick={(e) => { e.stopPropagation(); setEditAdmin(row) }}
-              className="p-1.5 hover:bg-indigo-50 rounded text-gray-400 hover:text-indigo-600"
+              className="p-1.5 hover:bg-orange-50 rounded text-gray-400 hover:text-orange-600"
               title="Edit permissions"
             >
               <Edit className="h-4 w-4" />
@@ -290,16 +316,16 @@ export default function AdminList() {
             role: 'Superadmin',
             desc: 'Full control of the entire platform. Can create and manage all other admins.',
             count: admins.filter(a => a.role === 'superadmin').length,
-            color: 'border-purple-200 bg-purple-50',
-            badge: 'text-purple-700 bg-purple-100',
+            color: 'border-orange-200 bg-orange-50',
+            badge: 'text-orange-700 bg-orange-100',
             permissions: 'All 10 permissions',
           },
           {
             role: 'Headmaster',
             desc: 'Manages day-to-day operations. Cannot manage payments or create admins.',
             count: admins.filter(a => a.role === 'headmaster').length,
-            color: 'border-blue-200 bg-blue-50',
-            badge: 'text-blue-700 bg-blue-100',
+            color: 'border-orange-200 bg-orange-50',
+            badge: 'text-orange-700 bg-orange-100',
             permissions: '8 of 10 permissions',
           },
           {
@@ -327,6 +353,7 @@ export default function AdminList() {
           columns={columns}
           data={admins}
           isLoading={isLoading}
+          onRowClick={setViewAdmin}
           emptyTitle="No admins found"
           emptyDesc="Create your first admin account"
         />
@@ -340,6 +367,33 @@ export default function AdminList() {
           onCancel={() => setShowCreate(false)}
         />
       </Modal>
+
+      {/* Admin Detail Modal */}
+      {viewAdmin && (
+        <Modal open={!!viewAdmin} onClose={() => setViewAdmin(null)} title="Admin Details" size="lg">
+          <AdminDetail
+            admin={viewAdmin}
+            isSelf={viewAdmin._id === currentAdmin?._id}
+            canManage={viewAdmin.role !== 'superadmin' && viewAdmin._id !== currentAdmin?._id}
+            onEditProfile={() => { setEditProfile(true); setViewAdmin(null) }}
+            onEdit={() => { setEditAdmin(viewAdmin); setViewAdmin(null) }}
+            onToggle={() => { toggleMutation.mutate({ id: viewAdmin._id, isActive: !viewAdmin.isActive }); setViewAdmin(null) }}
+            onDelete={() => { setDeleteAdmin(viewAdmin); setViewAdmin(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Edit My Profile Modal */}
+      {editProfile && (
+        <Modal open={editProfile} onClose={() => setEditProfile(false)} title="Edit My Profile" size="md">
+          <ProfileEditForm
+            admin={currentAdmin}
+            loading={profileMutation.isPending}
+            onCancel={() => setEditProfile(false)}
+            onSubmit={(values) => profileMutation.mutate(values)}
+          />
+        </Modal>
+      )}
 
       {/* Edit Permissions Modal */}
       {editAdmin && (
@@ -364,6 +418,157 @@ export default function AdminList() {
         variant="danger"
       />
     </div>
+  )
+}
+
+function AdminDetail({ admin, isSelf, canManage, onEditProfile, onEdit, onToggle, onDelete }) {
+  const isSuper = admin.role === 'superadmin'
+  const enabledCount = isSuper ? PERMISSIONS.length : PERMISSIONS.filter((p) => admin.permissions?.[p.key]).length
+
+  const ROLE_DESC = {
+    superadmin: 'Full control of the entire platform. Can create and manage all other admins.',
+    headmaster: 'Manages day-to-day operations. Cannot manage payments or create admins.',
+    moderator: 'Front-line support staff. Handles users, drivers, documents and tickets only.',
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-xl border border-orange-100">
+        <Avatar src={admin.avatarUrl} name={admin.name} size="lg" />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-gray-900 text-lg">{admin.name}</p>
+            <StatusBadge status={admin.role} />
+            <StatusBadge status={admin.isActive ? 'active' : 'suspended'} />
+            {isSelf && <span className="text-xs text-orange-600 font-medium">(You)</span>}
+          </div>
+          <p className="text-sm text-gray-500 mt-0.5">{ROLE_DESC[admin.role] || ''}</p>
+        </div>
+        <div className="ml-auto text-right shrink-0">
+          <p className="text-2xl font-bold text-orange-600">{enabledCount}</p>
+          <p className="text-xs text-gray-400">of {PERMISSIONS.length} permissions</p>
+        </div>
+      </div>
+
+      {/* Contact / meta */}
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { icon: Mail, label: 'Email', value: admin.email },
+          { icon: Phone, label: 'Phone', value: admin.phone },
+          { icon: Clock, label: 'Last Login', value: admin.lastLoginAt ? formatRelative(admin.lastLoginAt) : 'Never' },
+          { icon: Calendar, label: 'Created', value: formatDate(admin.createdAt) },
+        ].map((row) => (
+          <div key={row.label} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100">
+            <div className="rounded-lg p-2 bg-gray-50 text-gray-500 shrink-0">
+              <row.icon className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-400">{row.label}</p>
+              <p className="text-sm font-medium text-gray-800 truncate">{row.value || '—'}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Permissions */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          Permissions {isSuper && <span className="text-orange-600 normal-case font-medium">(Full access — all permissions)</span>}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {PERMISSIONS.map((perm) => {
+            const enabled = isSuper || !!admin.permissions?.[perm.key]
+            return (
+              <div
+                key={perm.key}
+                className={`flex items-center gap-3 p-3 rounded-xl border ${
+                  enabled ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-gray-50 opacity-60'
+                }`}
+              >
+                <div className={`rounded-lg p-1.5 shrink-0 ${ICON_COLORS[perm.color]}`}>
+                  <perm.icon className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800">{perm.label}</p>
+                </div>
+                {enabled
+                  ? <CheckCircle className="h-4 w-4 text-orange-500 shrink-0" />
+                  : <XCircle className="h-4 w-4 text-gray-300 shrink-0" />
+                }
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Actions */}
+      {isSelf && (
+        <div className="flex gap-3 pt-2 border-t border-gray-100">
+          <Button icon={Edit} className="flex-1" onClick={onEditProfile}>Edit My Profile</Button>
+        </div>
+      )}
+      {canManage && (
+        <div className="flex gap-3 pt-2 border-t border-gray-100">
+          <Button variant="secondary" icon={Edit} className="flex-1" onClick={onEdit}>Edit Permissions</Button>
+          <Button variant="warning" icon={admin.isActive ? ToggleLeft : ToggleRight} onClick={onToggle}>
+            {admin.isActive ? 'Deactivate' : 'Activate'}
+          </Button>
+          <Button variant="danger" icon={Trash2} onClick={onDelete}>Delete</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProfileEditForm({ admin, loading, onCancel, onSubmit }) {
+  const profileSchema = z.object({
+    name: z.string().min(2, 'Name required'),
+    email: z.string().email('Invalid email'),
+    phone: z.string().min(10, 'Invalid phone'),
+    currentPassword: z.string().optional().or(z.literal('')),
+    newPassword: z.string().optional().or(z.literal('')),
+  }).refine((d) => !d.newPassword || d.newPassword.length >= 6, {
+    message: 'New password must be at least 6 characters', path: ['newPassword'],
+  }).refine((d) => !d.newPassword || !!d.currentPassword, {
+    message: 'Enter your current password to change it', path: ['currentPassword'],
+  })
+
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { name: admin?.name || '', email: admin?.email || '', phone: admin?.phone || '', currentPassword: '', newPassword: '' },
+  })
+
+  const submit = handleSubmit((values) => {
+    const payload = { name: values.name, email: values.email, phone: values.phone }
+    if (values.newPassword) {
+      payload.currentPassword = values.currentPassword
+      payload.newPassword = values.newPassword
+    }
+    onSubmit(payload)
+  })
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <Input label="Full Name" error={errors.name?.message} {...register('name')} />
+        <Input label="Phone" error={errors.phone?.message} {...register('phone')} />
+      </div>
+      <Input label="Email" type="email" error={errors.email?.message} {...register('email')} />
+
+      <div className="pt-2 border-t border-gray-100">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Change Password (optional)</p>
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Current Password" type="password" placeholder="••••••••" error={errors.currentPassword?.message} {...register('currentPassword')} />
+          <Input label="New Password" type="password" placeholder="Min 6 characters" error={errors.newPassword?.message} {...register('newPassword')} />
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" className="flex-1" loading={loading}>Save Changes</Button>
+      </div>
+    </form>
   )
 }
 
@@ -396,10 +601,10 @@ function CreateAdminForm({ onSubmit, loading, onCancel }) {
         {[{ n: 1, label: 'Account Details' }, { n: 2, label: 'Set Permissions' }].map(({ n, label }) => (
           <div key={n} className="flex items-center gap-2 flex-1">
             <div className={`h-7 w-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
-              step >= n ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'
+              step >= n ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-400'
             }`}>{n}</div>
             <span className={`text-sm font-medium ${step >= n ? 'text-gray-800' : 'text-gray-400'}`}>{label}</span>
-            {n < 2 && <div className={`flex-1 h-0.5 ${step > n ? 'bg-indigo-600' : 'bg-gray-100'}`} />}
+            {n < 2 && <div className={`flex-1 h-0.5 ${step > n ? 'bg-orange-600' : 'bg-gray-100'}`} />}
           </div>
         ))}
       </div>
@@ -423,14 +628,14 @@ function CreateAdminForm({ onSubmit, loading, onCancel }) {
                 <label
                   key={r.value}
                   className={`flex items-start gap-3 p-3 border-2 rounded-xl cursor-pointer transition-all ${
-                    selectedRole === r.value ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
+                    selectedRole === r.value ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
                   <input type="radio" value={r.value} className="mt-0.5" {...register('role')} onChange={handleRoleChange} />
                   <div>
                     <p className="text-sm font-semibold text-gray-800">{r.label}</p>
                     <p className="text-xs text-gray-500">{r.desc}</p>
-                    <p className="text-xs text-indigo-600 font-medium mt-0.5">{r.count} default permissions</p>
+                    <p className="text-xs text-orange-600 font-medium mt-0.5">{r.count} default permissions</p>
                   </div>
                 </label>
               ))}
@@ -473,7 +678,7 @@ function CreateAdminForm({ onSubmit, loading, onCancel }) {
                   type="button"
                   onClick={() => togglePerm(perm.key)}
                   className={`flex items-center gap-4 p-3 rounded-xl border-2 text-left transition-all ${
-                    enabled ? 'border-indigo-300 bg-indigo-50' : 'border-gray-100 bg-white hover:border-gray-200'
+                    enabled ? 'border-orange-300 bg-orange-50' : 'border-gray-100 bg-white hover:border-gray-200'
                   }`}
                 >
                   <div className={`rounded-lg p-2 shrink-0 ${ICON_COLORS[perm.color]}`}>
@@ -483,7 +688,7 @@ function CreateAdminForm({ onSubmit, loading, onCancel }) {
                     <p className="text-sm font-semibold text-gray-800">{perm.label}</p>
                     <p className="text-xs text-gray-500">{perm.description}</p>
                   </div>
-                  <div className={`w-10 h-5 rounded-full shrink-0 relative transition-colors ${enabled ? 'bg-indigo-600' : 'bg-gray-200'}`}>
+                  <div className={`w-10 h-5 rounded-full shrink-0 relative transition-colors ${enabled ? 'bg-orange-600' : 'bg-gray-200'}`}>
                     <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                   </div>
                 </button>
@@ -532,7 +737,7 @@ function EditPermissionsForm({ admin, onSubmit, loading, onCancel }) {
           <StatusBadge status={admin.role} />
         </div>
         <div className="ml-auto text-right">
-          <p className="text-2xl font-bold text-indigo-600">{allowedCount}</p>
+          <p className="text-2xl font-bold text-orange-600">{allowedCount}</p>
           <p className="text-xs text-gray-400">of {PERMISSIONS.length} permissions</p>
         </div>
       </div>
@@ -550,7 +755,7 @@ function EditPermissionsForm({ admin, onSubmit, loading, onCancel }) {
               onClick={() => applyPreset(preset.key)}
               className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
                 activePreset === preset.key
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                  ? 'border-orange-500 bg-orange-50 text-orange-700'
                   : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -585,7 +790,7 @@ function EditPermissionsForm({ admin, onSubmit, loading, onCancel }) {
                 onClick={() => toggle(perm.key)}
                 className={`text-left p-4 rounded-xl border-2 transition-all ${
                   enabled
-                    ? 'border-indigo-300 bg-indigo-50'
+                    ? 'border-orange-300 bg-orange-50'
                     : 'border-gray-100 bg-gray-50 opacity-60 hover:opacity-80'
                 }`}
               >
@@ -593,7 +798,7 @@ function EditPermissionsForm({ admin, onSubmit, loading, onCancel }) {
                   <div className={`rounded-lg p-1.5 ${ICON_COLORS[perm.color]}`}>
                     <perm.icon className="h-4 w-4" />
                   </div>
-                  <div className={`w-10 h-5 rounded-full transition-colors relative ${enabled ? 'bg-indigo-600' : 'bg-gray-300'}`}>
+                  <div className={`w-10 h-5 rounded-full transition-colors relative ${enabled ? 'bg-orange-600' : 'bg-gray-300'}`}>
                     <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                   </div>
                 </div>
@@ -603,7 +808,7 @@ function EditPermissionsForm({ admin, onSubmit, loading, onCancel }) {
                   {perm.allows.map((a) => (
                     <div key={a} className="flex items-center gap-1.5">
                       {enabled
-                        ? <CheckCircle className="h-3 w-3 text-indigo-500 shrink-0" />
+                        ? <CheckCircle className="h-3 w-3 text-orange-500 shrink-0" />
                         : <XCircle className="h-3 w-3 text-gray-300 shrink-0" />
                       }
                       <span className={`text-xs ${enabled ? 'text-gray-600' : 'text-gray-400'}`}>{a}</span>

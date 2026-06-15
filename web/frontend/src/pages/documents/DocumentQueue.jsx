@@ -14,6 +14,8 @@ import { documentsApi } from '../../api/documents.api'
 import { formatDate, formatRelative } from '../../utils/format'
 import toast from 'react-hot-toast'
 
+const isPdf = (url) => /\.pdf(\?|$)/i.test(url || '')
+
 export default function DocumentQueue() {
   const qc = useQueryClient()
   const [tab, setTab] = useState('pending')
@@ -43,7 +45,7 @@ export default function DocumentQueue() {
     onError: (err) => toast.error(err?.message || 'Failed'),
   })
 
-  const docs = data?.data || []
+  const docs = data?.data?.documents || data?.data || []
 
   const tabs = [
     { value: 'pending', label: 'Pending', count: tab === 'pending' ? docs.length : undefined },
@@ -83,9 +85,17 @@ export default function DocumentQueue() {
           <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {docs.map((doc) => (
               <div key={doc._id} className="border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                {/* Document image */}
+                {/* Document image / PDF */}
                 <div className="relative h-44 bg-gray-50 group">
-                  {doc.fileUrl ? (
+                  {doc.fileUrl && isPdf(doc.fileUrl) ? (
+                    <button
+                      onClick={() => setLightbox(doc)}
+                      className="flex flex-col items-center justify-center h-full w-full gap-2 hover:bg-gray-100 transition-colors"
+                    >
+                      <FileText className="h-12 w-12 text-orange-500" />
+                      <span className="text-xs font-medium text-gray-600">PDF Document — click to view</span>
+                    </button>
+                  ) : doc.fileUrl ? (
                     <>
                       <img
                         src={doc.fileUrl}
@@ -168,7 +178,15 @@ export default function DocumentQueue() {
               <h3 className="text-white font-semibold">{DOC_TYPE_LABELS[lightbox.type] || lightbox.type}</h3>
               <button onClick={() => setLightbox(null)} className="text-white/60 hover:text-white text-2xl">×</button>
             </div>
-            <img src={lightbox.fileUrl} alt={lightbox.type} className="w-full rounded-xl max-h-[80vh] object-contain" />
+            {isPdf(lightbox.fileUrl) ? (
+              <iframe
+                src={lightbox.fileUrl}
+                title={lightbox.type}
+                className="w-full rounded-xl bg-white h-[75vh]"
+              />
+            ) : (
+              <img src={lightbox.fileUrl} alt={lightbox.type} className="w-full rounded-xl max-h-[80vh] object-contain" />
+            )}
             {lightbox.status === 'pending' && (
               <div className="flex gap-3 mt-4">
                 <Button variant="success" className="flex-1" onClick={() => { verify.mutate(lightbox._id); setLightbox(null) }} loading={verify.isPending}>

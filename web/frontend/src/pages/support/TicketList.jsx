@@ -36,7 +36,7 @@ export default function TicketList() {
   })
 
   const tickets = data?.data?.tickets || data?.data || []
-  const pagination = data?.data?.pagination || { total: 0, totalPages: 1 }
+  const pagination = data?.pagination || { total: 0, pages: 1, page: 1, limit: 20 }
 
   const tabs = [
     { value: 'open', label: 'Open' },
@@ -145,7 +145,7 @@ export default function TicketList() {
         />
 
         {pagination.total > 0 && (
-          <Pagination page={page} totalPages={pagination.totalPages} total={pagination.total} limit={20} onPageChange={setPage} />
+          <Pagination page={page} totalPages={pagination.pages} total={pagination.total} limit={20} onPageChange={setPage} />
         )}
       </div>
     </div>
