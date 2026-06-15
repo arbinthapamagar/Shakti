@@ -8,7 +8,7 @@ import { tripsApi } from '../../api/trips.api'
 import { formatDate, formatDateTime, formatCurrency, formatDistance, formatDuration } from '../../utils/format'
 
 function InfoCard({ title, icon: Icon, children, color = 'indigo' }) {
-  const colors = { indigo: 'text-indigo-600 bg-indigo-50', emerald: 'text-emerald-600 bg-emerald-50', amber: 'text-amber-600 bg-amber-50', blue: 'text-blue-600 bg-blue-50' }
+  const colors = { indigo: 'text-orange-600 bg-orange-50', emerald: 'text-emerald-600 bg-emerald-50', amber: 'text-amber-600 bg-amber-50', blue: 'text-orange-600 bg-orange-50' }
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
       <div className="flex items-center gap-2 mb-4">
@@ -154,7 +154,7 @@ export default function TripDetail() {
           <div className="space-y-3">
             {timeline.map((event, i) => (
               <div key={i} className="flex gap-3 items-start">
-                <div className={`mt-0.5 h-3 w-3 rounded-full shrink-0 ${event.done ? (event.cancel ? 'bg-red-500' : 'bg-indigo-600') : 'bg-gray-200'}`} />
+                <div className={`mt-0.5 h-3 w-3 rounded-full shrink-0 ${event.done ? (event.cancel ? 'bg-red-500' : 'bg-orange-600') : 'bg-gray-200'}`} />
                 <div className="flex-1">
                   <p className={`text-sm font-medium ${event.done ? 'text-gray-900' : 'text-gray-400'}`}>{event.label}</p>
                   {event.time && <p className="text-xs text-gray-400">{formatDateTime(event.time)}</p>}
@@ -182,7 +182,7 @@ export default function TripDetail() {
                     <p className="text-xs text-gray-400">{bid.message || 'No message'}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-indigo-600">{formatCurrency(bid.amount)}</p>
+                    <p className="font-bold text-orange-600">{formatCurrency(bid.amount)}</p>
                     <StatusBadge status={bid.status} />
                   </div>
                 </div>

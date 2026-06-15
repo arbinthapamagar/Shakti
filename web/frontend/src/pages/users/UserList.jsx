@@ -53,7 +53,7 @@ export default function UserList() {
   })
 
   const users = data?.data?.users || data?.data || []
-  const pagination = data?.data?.pagination || { total: 0, totalPages: 1 }
+  const pagination = data?.pagination || { total: 0, pages: 1, page: 1, limit: 20 }
 
   const columns = [
     {
@@ -114,7 +114,7 @@ export default function UserList() {
         <div className="flex items-center gap-1">
           <button
             onClick={(e) => { e.stopPropagation(); setSelectedUser(row) }}
-            className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-indigo-600"
+            className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-orange-600"
             title="View"
           >
             <Eye className="h-4 w-4" />
@@ -193,7 +193,7 @@ export default function UserList() {
         {pagination.total > 0 && (
           <Pagination
             page={page}
-            totalPages={pagination.totalPages}
+            totalPages={pagination.pages}
             total={pagination.total}
             limit={20}
             onPageChange={setPage}

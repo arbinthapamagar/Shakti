@@ -55,7 +55,7 @@ export default function TransactionList() {
   })
 
   const txns = data?.data?.transactions || data?.data || []
-  const pagination = data?.data?.pagination || { total: 0, totalPages: 1 }
+  const pagination = data?.pagination || { total: 0, pages: 1, page: 1, limit: 20 }
   const summary = summaryRes?.data || {}
 
   const tabs = [
@@ -187,7 +187,7 @@ export default function TransactionList() {
         <DataTable columns={columns} data={txns} isLoading={isLoading} emptyTitle="No transactions found" />
 
         {pagination.total > 0 && (
-          <Pagination page={page} totalPages={pagination.totalPages} total={pagination.total} limit={20} onPageChange={setPage} />
+          <Pagination page={page} totalPages={pagination.pages} total={pagination.total} limit={20} onPageChange={setPage} />
         )}
       </div>
     </div>
