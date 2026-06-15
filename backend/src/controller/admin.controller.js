@@ -1176,6 +1176,66 @@ const getNotificationHistory = asyncHandler(async (req, res) => {
     );
 });
 
+// ─── DEV/TEST ONLY: seed a dummy pending document so the admin queue has data ──
+// Creates (or reuses) a test driver + user and inserts one pending Document.
+// Disabled in production. Call: POST /api/v1/admin/documents/seed-test
+const seedTestDocument = asyncHandler(async (req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+        throw new apiError(403, 'Disabled in production');
+    }
+
+    const { type = 'driving_license' } = req.body || {};
+
+    // Reuse an existing user, or create a throwaway test user
+    let user = await User.findOne().sort({ createdAt: 1 });
+    if (!user) {
+        user = await User.create({
+            name: 'Test Driver',
+            phone: '9700000001',
+            email: 'test.driver@example.com',
+            password: 'password',
+            gender: 'male',
+            isPhoneVerified: true,
+            accountStatus: 'active',
+        });
+    }
+
+    // Reuse a driver for that user, or create one
+    let driver = await Driver.findOne({ userId: user._id });
+    if (!driver) {
+        const suffix = Date.now().toString().slice(-6);
+        driver = await Driver.create({
+            userId: user._id,
+            vehicleType: 'taxi',
+            vehiclePlate: `BA-${suffix}`,
+            licenseNumber: `LIC-${suffix}`,
+            licenseExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+            status: 'pending',
+        });
+    }
+
+    // Insert / upsert a pending document with a public placeholder image
+    const document = await Document.findOneAndUpdate(
+        { driverId: driver._id, type },
+        {
+            fileUrl: 'https://placehold.co/600x400/orange/white.png?text=Test+Document',
+            status: 'pending',
+            rejectionReason: null,
+            verifiedBy: null,
+            verifiedAt: null,
+        },
+        { upsert: true, new: true }
+    );
+
+    const populated = await Document.findById(document._id).populate({
+        path: 'driverId',
+        select: 'vehicleType vehiclePlate userId',
+        populate: { path: 'userId', select: 'name phone' },
+    });
+
+    return res.status(201).json(new apiResponse(201, populated, 'Test document created'));
+});
+
 export {
     login, logout, refreshAdminToken, getMe,
     createAdmin, listAdmins, updateAdminPermissions, toggleAdminStatus, deleteAdmin,
@@ -1183,7 +1243,7 @@ export {
     getAnalyticsOverview, getAnalyticsTrips, getAnalyticsUsers, getAnalyticsTopDrivers, getAnalyticsVehicleDistribution,
     getUsers, getUserById, updateUserStatus, getUserTrips, getUserTransactions,
     getDrivers, getDriverById, updateDriverStatus, verifyDriver, getDriverDocuments, getDriverTrips, getDriverEarnings,
-    getAllDocuments, verifyDocument, rejectDocument,
+    getAllDocuments, verifyDocument, rejectDocument, seedTestDocument,
     getTrips, getTripByIdAdmin, getTripBids, cancelTripAdmin,
     getTransactions, getTransactionById, getTransactionSummary,
     getSubscriptions, getSubscriptionById, updateSubscriptionStatus, assignDriverToSubscription,
