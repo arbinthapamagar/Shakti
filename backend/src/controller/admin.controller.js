@@ -111,6 +111,39 @@ const getMe = asyncHandler(async (req, res) => {
     return res.status(200).json(new apiResponse(200, admin, 'Profile fetched'));
 });
 
+// Update your own profile: name, email, phone, and optionally password.
+const updateMyProfile = asyncHandler(async (req, res) => {
+    const { name, email, phone, currentPassword, newPassword } = req.body;
+
+    const admin = await Admin.findById(req.admin._id);
+    if (!admin) throw new apiError(404, 'Admin not found');
+
+    if (email && email.toLowerCase().trim() !== admin.email) {
+        const exists = await Admin.findOne({ email: email.toLowerCase().trim(), _id: { $ne: admin._id } });
+        if (exists) throw new apiError(409, 'Email already in use');
+        admin.email = email.toLowerCase().trim();
+    }
+    if (phone && phone !== admin.phone) {
+        const exists = await Admin.findOne({ phone, _id: { $ne: admin._id } });
+        if (exists) throw new apiError(409, 'Phone already in use');
+        admin.phone = phone;
+    }
+    if (name) admin.name = name;
+
+    if (newPassword) {
+        if (!currentPassword) throw new apiError(400, 'Current password is required to change password');
+        const ok = await admin.isPasswordCorrect(currentPassword);
+        if (!ok) throw new apiError(401, 'Current password is incorrect');
+        if (newPassword.length < 6) throw new apiError(400, 'New password must be at least 6 characters');
+        admin.password = newPassword; // hashed by the pre-save hook
+    }
+
+    await admin.save();
+
+    const updated = await Admin.findById(admin._id).select('-password -refreshToken');
+    return res.status(200).json(new apiResponse(200, updated, 'Profile updated'));
+});
+
 const createAdmin = asyncHandler(async (req, res) => {
     if (!req.admin.permissions.manageAdmins) throw new apiError(403, 'Insufficient permissions');
 
@@ -497,10 +530,7 @@ const getUsers = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            users,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Users fetched')
+        new apiResponse(200, users, 'Users fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -546,10 +576,7 @@ const getUserTrips = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            trips,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'User trips fetched')
+        new apiResponse(200, trips, 'User trips fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -569,10 +596,7 @@ const getUserTransactions = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            transactions,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'User transactions fetched')
+        new apiResponse(200, transactions, 'User transactions fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -598,10 +622,7 @@ const getDrivers = asyncHandler(async (req, res) => {
     const [drivers, total] = await Promise.all([query, Driver.countDocuments(filter)]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            drivers,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Drivers fetched')
+        new apiResponse(200, drivers, 'Drivers fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -700,10 +721,7 @@ const getDriverTrips = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            trips,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Driver trips fetched')
+        new apiResponse(200, trips, 'Driver trips fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -759,10 +777,7 @@ const getAllDocuments = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            documents,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Documents fetched')
+        new apiResponse(200, documents, 'Documents fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -837,10 +852,7 @@ const getTrips = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            trips,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Trips fetched')
+        new apiResponse(200, trips, 'Trips fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -919,10 +931,7 @@ const getTransactions = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            transactions,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Transactions fetched')
+        new apiResponse(200, transactions, 'Transactions fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -991,10 +1000,7 @@ const getSubscriptions = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            subscriptions,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Subscriptions fetched')
+        new apiResponse(200, subscriptions, 'Subscriptions fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -1062,10 +1068,7 @@ const getSupportTickets = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            tickets,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Support tickets fetched')
+        new apiResponse(200, tickets, 'Support tickets fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -1125,18 +1128,20 @@ const assignTicket = asyncHandler(async (req, res) => {
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 const broadcastNotification = asyncHandler(async (req, res) => {
-    const { title, body, type = 'general', targetType = 'all' } = req.body;
+    const { title, body, type = 'general' } = req.body;
+    // Frontend sends `target`; older clients send `targetType`. Accept either.
+    const audience = req.body.target || req.body.targetType || 'all';
     if (!title || !body) throw new apiError(400, 'Title and body are required');
 
     const VALID_TYPES = ['trip_request','bid_received','bid_accepted','driver_arriving','trip_started','trip_completed','trip_cancelled','subscription_alert','document_verified','document_rejected','account_approved','account_suspended','account_rejected','payment','general'];
     const safeType = VALID_TYPES.includes(type) ? type : 'general';
 
     let userIds = [];
-    if (targetType === 'all' || targetType === 'users') {
+    if (audience === 'all' || audience === 'users') {
         const users = await User.find({ accountStatus: 'active' }).select('_id');
         userIds = userIds.concat(users.map(u => u._id));
     }
-    if (targetType === 'all' || targetType === 'drivers') {
+    if (audience === 'all' || audience === 'drivers') {
         const drivers = await Driver.find({ status: 'approved' }).select('userId');
         userIds = userIds.concat(drivers.map(d => d.userId));
     }
@@ -1169,10 +1174,7 @@ const getNotificationHistory = asyncHandler(async (req, res) => {
     ]);
 
     return res.status(200).json(
-        new apiResponse(200, {
-            notifications,
-            pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
-        }, 'Notification history fetched')
+        new apiResponse(200, notifications, 'Notification history fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -1184,7 +1186,9 @@ const seedTestDocument = asyncHandler(async (req, res) => {
         throw new apiError(403, 'Disabled in production');
     }
 
-    const { type = 'driving_license' } = req.body || {};
+    const { type = 'driving_license', fileUrl } = req.body || {};
+    // Default to a placeholder image; pass fileUrl (e.g. a .pdf) to test other formats.
+    const docUrl = fileUrl || 'https://placehold.co/600x400/orange/white.png?text=Test+Document';
 
     // Reuse an existing user, or create a throwaway test user
     let user = await User.findOne().sort({ createdAt: 1 });
@@ -1218,7 +1222,7 @@ const seedTestDocument = asyncHandler(async (req, res) => {
     const document = await Document.findOneAndUpdate(
         { driverId: driver._id, type },
         {
-            fileUrl: 'https://placehold.co/600x400/orange/white.png?text=Test+Document',
+            fileUrl: docUrl,
             status: 'pending',
             rejectionReason: null,
             verifiedBy: null,
@@ -1237,7 +1241,7 @@ const seedTestDocument = asyncHandler(async (req, res) => {
 });
 
 export {
-    login, logout, refreshAdminToken, getMe,
+    login, logout, refreshAdminToken, getMe, updateMyProfile,
     createAdmin, listAdmins, updateAdminPermissions, toggleAdminStatus, deleteAdmin,
     getDashboardStats, getDashboardRecentTrips,
     getAnalyticsOverview, getAnalyticsTrips, getAnalyticsUsers, getAnalyticsTopDrivers, getAnalyticsVehicleDistribution,

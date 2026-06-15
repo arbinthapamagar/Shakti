@@ -3,6 +3,7 @@ import { useAuthStore } from './store/authStore'
 import Layout from './components/layout/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Profile from './pages/Profile'
 import UserList from './pages/users/UserList'
 import DriverList from './pages/drivers/DriverList'
 import DriverDetail from './pages/drivers/DriverDetail'
@@ -37,6 +38,7 @@ export default function App() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="users" element={<UserList />} />
         <Route path="drivers" element={<DriverList />} />
         <Route path="drivers/:id" element={<DriverDetail />} />

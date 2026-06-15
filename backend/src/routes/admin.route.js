@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { verifyAdminJwt } from '../middlewares/admin.middleware.js';
 import {
-    login, logout, refreshAdminToken, getMe,
+    login, logout, refreshAdminToken, getMe, updateMyProfile,
     createAdmin, listAdmins, updateAdminPermissions, toggleAdminStatus, deleteAdmin,
     getDashboardStats, getDashboardRecentTrips,
     getAnalyticsOverview, getAnalyticsTrips, getAnalyticsUsers, getAnalyticsTopDrivers, getAnalyticsVehicleDistribution,
     getUsers, getUserById, updateUserStatus, getUserTrips, getUserTransactions,
     getDrivers, getDriverById, updateDriverStatus, verifyDriver, getDriverDocuments, getDriverTrips, getDriverEarnings,
-    getAllDocuments, verifyDocument, rejectDocument,
+    getAllDocuments, verifyDocument, rejectDocument, seedTestDocument,
     getTrips, getTripByIdAdmin, getTripBids, cancelTripAdmin,
     getTransactions, getTransactionById, getTransactionSummary,
     getSubscriptions, getSubscriptionById, updateSubscriptionStatus, assignDriverToSubscription,
@@ -25,6 +25,7 @@ adminRouter.post('/refresh-token', refreshAdminToken);
 adminRouter.use(verifyAdminJwt);
 adminRouter.post('/logout', logout);
 adminRouter.get('/me', getMe);
+adminRouter.patch('/me', updateMyProfile);
 
 // Admin management
 adminRouter.get('/admins', listAdmins);
@@ -64,6 +65,7 @@ adminRouter.get('/drivers/:id/earnings', getDriverEarnings);
 
 // Documents
 adminRouter.get('/documents', getAllDocuments);
+adminRouter.post('/documents/seed-test', seedTestDocument); // DEV/TEST only
 adminRouter.put('/documents/:id/verify', verifyDocument);
 adminRouter.patch('/documents/:id/verify', verifyDocument);
 adminRouter.put('/documents/:id/reject', rejectDocument);
