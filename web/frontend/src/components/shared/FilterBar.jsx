@@ -12,7 +12,7 @@ export function FilterBar({ search, onSearch, filters = [], className }) {
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder="Search..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
           />
           {search && (
             <button
@@ -29,7 +29,7 @@ export function FilterBar({ search, onSearch, filters = [], className }) {
           <select
             value={f.value}
             onChange={(e) => f.onChange(e.target.value)}
-            className="appearance-none pl-3 pr-7 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+            className="appearance-none pl-3 pr-7 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-orange-500 cursor-pointer"
           >
             <option value="">{f.placeholder}</option>
             {f.options.map((opt) => (

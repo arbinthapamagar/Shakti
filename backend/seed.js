@@ -16,7 +16,7 @@ const seed = async () => {
 
   // ─── Super Admins ─────────────────────────────────────────────────────────────
   const accounts = [
-    { name: 'Demo Admin', email: 'demo@gmail.com', phone: '9800000000', password: 'password', role: 'superadmin' },
+    { name: 'Demo Admin', email: 'arbin.matat@gmail.com', phone: '9800000000', password: 'Arbeen@1', role: 'superadmin' },
     { name: 'Arbeen', email: 'arbinbabuthapamagar2002@gmail.com', phone: '9818856764', password: 'Arbeen@1', role: 'superadmin' },
   ];
 
@@ -47,7 +47,7 @@ const seed = async () => {
   }
 
   console.log('\nSeed complete!');
-  console.log('Admin panel:  demo@gmail.com / password');
+  console.log('Admin panel:  arbin.matat@gmail.com / Arbeen@1');
   console.log('Mobile login: phone=9818856764, password=password');
   process.exit(0);
 };

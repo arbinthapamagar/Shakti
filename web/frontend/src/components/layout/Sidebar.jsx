@@ -60,7 +60,7 @@ export function Sidebar({ open, onClose }) {
       {/* Mobile: slide-in drawer controlled by `open` prop */}
       <aside
         className={cn(
-          'bg-blue-50 text-blue-900 flex flex-col h-screen fixed left-0 top-0 z-30 w-60 transition-transform duration-200 border-r border-blue-200',
+          'bg-white text-gray-900 flex flex-col h-screen fixed left-0 top-0 z-30 w-60 transition-transform duration-200 border-r border-gray-200',
           // Desktop — always shown
           'lg:translate-x-0',
           // Mobile — shown only when open
@@ -68,17 +68,17 @@ export function Sidebar({ open, onClose }) {
         )}
       >
         {/* Logo + mobile close */}
-        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-blue-200">
-          <div className="bg-blue-400 rounded-lg p-1.5">
+        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-200">
+          <div className="bg-orange-500 rounded-lg p-1.5">
             <Zap className="h-5 w-5 text-white" />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-blue-900 text-base leading-tight">Shakti</p>
-            <p className="text-blue-400 text-xs">Admin Portal</p>
+            <p className="font-bold text-gray-900 text-base leading-tight">Shakti</p>
+            <p className="text-orange-600 text-xs">Admin Portal</p>
           </div>
           <button
             onClick={onClose}
-            className="lg:hidden p-1 rounded-md hover:bg-blue-100 text-blue-400"
+            className="lg:hidden p-1 rounded-md hover:bg-orange-50 text-gray-500"
           >
             <X className="h-4 w-4" />
           </button>
@@ -93,7 +93,7 @@ export function Sidebar({ open, onClose }) {
             if (!visibleItems.length) return null
             return (
               <div key={section.label} className="mb-5">
-                <p className="px-5 mb-1.5 text-xs font-semibold text-blue-400 uppercase tracking-wider">
+                <p className="px-5 mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   {section.label}
                 </p>
                 {visibleItems.map((item) => (
@@ -105,14 +105,14 @@ export function Sidebar({ open, onClose }) {
                       cn(
                         'flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-colors group',
                         isActive
-                          ? 'bg-blue-400 text-white'
-                          : 'text-slate-600 hover:bg-blue-100 hover:text-blue-900'
+                          ? 'bg-orange-500 text-white'
+                          : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
                       )
                     }
                   >
                     {({ isActive }) => (
                       <>
-                        <item.icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-white' : 'text-blue-400 group-hover:text-blue-700')} />
+                        <item.icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-white' : 'text-gray-400 group-hover:text-orange-600')} />
                         <span className="flex-1">{item.label}</span>
                         {isActive && <ChevronRight className="h-3 w-3 opacity-60" />}
                       </>
@@ -125,14 +125,14 @@ export function Sidebar({ open, onClose }) {
         </nav>
 
         {/* Admin info */}
-        <div className="border-t border-blue-200 p-4">
+        <div className="border-t border-gray-200 p-4">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-blue-400 flex items-center justify-center text-xs font-bold text-white shrink-0">
+            <div className="h-8 w-8 rounded-full bg-orange-500 flex items-center justify-center text-xs font-bold text-white shrink-0">
               {admin?.name?.charAt(0)?.toUpperCase() || 'A'}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-blue-900 truncate">{admin?.name || 'Admin'}</p>
-              <p className="text-xs text-blue-400 capitalize">{admin?.role || 'admin'}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">{admin?.name || 'Admin'}</p>
+              <p className="text-xs text-gray-500 capitalize">{admin?.role || 'admin'}</p>
             </div>
           </div>
         </div>

@@ -56,8 +56,8 @@ export function Header({ onMenuClick }) {
         </button>
         <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-              <User className="h-4 w-4 text-blue-400" />
+            <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+              <User className="h-4 w-4 text-orange-400" />
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-medium text-gray-700 leading-tight">{admin?.name}</p>

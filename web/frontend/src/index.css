@@ -13,7 +13,7 @@
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: #fb923c transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
@@ -22,7 +22,7 @@
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
+    background-color: #fb923c;
     border-radius: 9999px;
   }
 }
