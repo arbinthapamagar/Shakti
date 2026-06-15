@@ -37,7 +37,7 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }) {
               className={cn(
                 'h-8 w-8 rounded-lg text-sm font-medium transition-colors',
                 p === page
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-orange-600 text-white'
                   : 'text-gray-600 hover:bg-gray-100'
               )}
             >

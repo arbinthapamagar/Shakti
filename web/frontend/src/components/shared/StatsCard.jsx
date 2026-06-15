@@ -2,12 +2,12 @@ import { cn } from '../../utils/cn'
 
 export function StatsCard({ title, value, subtitle, icon: Icon, trend, color = 'indigo', loading }) {
   const colorMap = {
-    indigo: { bg: 'bg-indigo-50', icon: 'text-indigo-600', text: 'text-indigo-600' },
+    indigo: { bg: 'bg-orange-50', icon: 'text-orange-600', text: 'text-orange-600' },
     emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', text: 'text-emerald-600' },
     amber: { bg: 'bg-amber-50', icon: 'text-amber-600', text: 'text-amber-600' },
     red: { bg: 'bg-red-50', icon: 'text-red-600', text: 'text-red-600' },
-    blue: { bg: 'bg-blue-50', icon: 'text-blue-600', text: 'text-blue-600' },
-    purple: { bg: 'bg-purple-50', icon: 'text-purple-600', text: 'text-purple-600' },
+    blue: { bg: 'bg-orange-50', icon: 'text-orange-600', text: 'text-orange-600' },
+    purple: { bg: 'bg-orange-50', icon: 'text-orange-600', text: 'text-orange-600' },
     rose: { bg: 'bg-rose-50', icon: 'text-rose-600', text: 'text-rose-600' },
     teal: { bg: 'bg-teal-50', icon: 'text-teal-600', text: 'text-teal-600' },
   }
