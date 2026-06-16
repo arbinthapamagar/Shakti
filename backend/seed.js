@@ -14,7 +14,7 @@ const dbConnect = async () => {
 const seed = async () => {
   await dbConnect();
 
-  // ─── Super Admins ─────────────────────────────────────────────────────────────
+  // Super Admins
   const accounts = [
     { name: 'Demo Admin', email: 'arbin.matat@gmail.com', phone: '9800000000', password: 'Arbeen@1', role: 'superadmin' },
     { name: 'Arbeen', email: 'arbinbabuthapamagar2002@gmail.com', phone: '9818856764', password: 'Arbeen@1', role: 'superadmin' },
@@ -30,7 +30,7 @@ const seed = async () => {
     }
   }
 
-  // ─── Demo Mobile Users ────────────────────────────────────────────────────────
+  // Demo Mobile Users 
   const mobileUsers = [
     { name: 'Demo Rider', phone: '9818856764', email: 'demo.rider@gmail.com', password: 'password', gender: 'male' },
     { name: 'Demo User', phone: '9800000001', email: 'demo@gmail.com', password: 'password', gender: 'male' },
