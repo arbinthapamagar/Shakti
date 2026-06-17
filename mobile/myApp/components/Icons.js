@@ -53,7 +53,7 @@ export function DeliveryArt({ size = 64 }) {
   );
 }
 
-export function PinIcon({ size = 16, color = '#1f7a4d' }) {
+export function PinIcon({ size = 16, color = '#ea580c' }) {
   return <Ionicons name="location" size={size} color={color} />;
 }
 
@@ -89,7 +89,7 @@ export function BellIcon({ size = 22, color = '#e0464a' }) {
   return <Ionicons name="notifications" size={size} color={color} />;
 }
 
-export function HomeIcon({ size = 22, color = '#1f7a4d' }) {
+export function HomeIcon({ size = 22, color = '#ea580c' }) {
   return <Ionicons name="home" size={size} color={color} />;
 }
 
@@ -101,7 +101,7 @@ export function UserIcon({ size = 22, color = '#7a4d20' }) {
   return <Ionicons name="person" size={size} color={color} />;
 }
 
-export function CallIcon({ size = 16, color = '#1f7a4d' }) {
+export function CallIcon({ size = 16, color = '#ea580c' }) {
   return <Ionicons name="call" size={size} color={color} />;
 }
 
@@ -113,7 +113,7 @@ export function ShareIcon({ size = 16, color = '#0a0e0c' }) {
   return <Ionicons name="share-social" size={size} color={color} />;
 }
 
-export function ShieldIcon({ size = 16, color = '#1f7a4d' }) {
+export function ShieldIcon({ size = 16, color = '#ea580c' }) {
   return <Ionicons name="shield-checkmark" size={size} color={color} />;
 }
 
@@ -125,11 +125,11 @@ export function CardIcon({ size = 18, color = '#0a0e0c' }) {
   return <Ionicons name="card" size={size} color={color} />;
 }
 
-export function CashIcon({ size = 18, color = '#1f7a4d' }) {
+export function CashIcon({ size = 18, color = '#ea580c' }) {
   return <MaterialCommunityIcons name="cash-multiple" size={size} color={color} />;
 }
 
-export function ArrowDownIcon({ size = 14, color = '#1f7a4d' }) {
+export function ArrowDownIcon({ size = 14, color = '#ea580c' }) {
   return <Ionicons name="arrow-down" size={size} color={color} />;
 }
 
@@ -141,7 +141,7 @@ export function PlusIcon({ size = 16, color = '#0a0e0c' }) {
   return <Ionicons name="add" size={size} color={color} />;
 }
 
-export function CheckIcon({ size = 14, color = '#1f7a4d' }) {
+export function CheckIcon({ size = 14, color = '#ea580c' }) {
   return <Ionicons name="checkmark" size={size} color={color} />;
 }
 
@@ -164,13 +164,13 @@ export function PackageIcon({ size = 28, color = '#7a4d20' }) {
 }
 
 export const PAYMENT_BRAND = {
-  cash: { bg: '#1f7a4d', accent: '#e8f3ec', label: 'Cash', short: 'C' },
+  cash: { bg: '#ea580c', accent: '#fff2e8', label: 'Cash', short: 'C' },
   esewa: { bg: '#2c8f4a', accent: '#e0f4e6', label: 'eSewa', short: 'eS' },
   khalti: { bg: '#5c2d91', accent: '#ede4f7', label: 'Khalti', short: 'Kh' },
 };
 
 export function PaymentBadge({ id, size = 22 }) {
-  if (id === 'cash') return <CashIcon size={size} color="#1f7a4d" />;
+  if (id === 'cash') return <CashIcon size={size} color="#ea580c" />;
   return <CardIcon size={size} color={id === 'khalti' ? '#5c2d91' : '#2c8f4a'} />;
 }
 

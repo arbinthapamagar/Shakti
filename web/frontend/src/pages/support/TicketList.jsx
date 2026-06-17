@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
-import { MessageSquare } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { DataTable } from '../../components/shared/DataTable'
 import { Pagination } from '../../components/shared/Pagination'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { FilterBar } from '../../components/shared/FilterBar'
-import { Tabs } from '../../components/ui/Tabs'
 import { Avatar } from '../../components/ui/Avatar'
+import { SupportFolders } from './SupportFolders'
 import { supportApi } from '../../api/support.api'
 import { formatRelative, formatDate } from '../../utils/format'
 
@@ -25,26 +24,24 @@ const CATEGORY_OPTIONS = [
 
 export default function TicketList() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const statusTab = searchParams.get('status') || '' // folder, driven by the URL
   const [page, setPage] = useState(1)
-  const [statusTab, setStatusTab] = useState('open')
   const [category, setCategory] = useState('')
+
+  // Reset to the first page whenever the folder changes (adjust-during-render).
+  const [prevStatus, setPrevStatus] = useState(statusTab)
+  if (statusTab !== prevStatus) { setPrevStatus(statusTab); setPage(1) }
 
   const { data, isLoading } = useQuery({
     queryKey: ['support', page, statusTab, category],
     queryFn: () => supportApi.list({ page, limit: 20, status: statusTab || undefined, category: category || undefined }),
     keepPreviousData: true,
+    refetchInterval: 10000, // keep the queue + counts fresh
   })
 
   const tickets = data?.data?.tickets || data?.data || []
   const pagination = data?.pagination || { total: 0, pages: 1, page: 1, limit: 20 }
-
-  const tabs = [
-    { value: 'open', label: 'Open' },
-    { value: 'in_progress', label: 'In Progress' },
-    { value: 'resolved', label: 'Resolved' },
-    { value: 'closed', label: 'Closed' },
-    { value: '', label: 'All' },
-  ]
 
   const columns = [
     {
@@ -115,38 +112,40 @@ export default function TicketList() {
   ]
 
   return (
-    <div>
-      <PageHeader title="Support Tickets" description="Manage user and driver support requests" />
+    <div className="flex gap-4 items-start">
+      <SupportFolders active={statusTab} />
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-        <div className="px-5 pt-4">
-          <Tabs tabs={tabs} active={statusTab} onChange={(v) => { setStatusTab(v); setPage(1) }} />
-        </div>
-        <div className="px-5 py-4 border-b border-gray-50">
-          <FilterBar
-            filters={[
-              {
-                placeholder: 'All Categories',
-                value: category,
-                onChange: (v) => { setCategory(v); setPage(1) },
-                options: CATEGORY_OPTIONS,
-              },
-            ]}
+      {/* Main column: header + table (rail stays put on the left, Outlook-style) */}
+      <div className="flex-1 min-w-0">
+        <PageHeader title="Support Tickets" description="Manage user and driver support requests" />
+
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div className="px-5 py-4 border-b border-gray-50">
+            <FilterBar
+              filters={[
+                {
+                  placeholder: 'All Categories',
+                  value: category,
+                  onChange: (v) => { setCategory(v); setPage(1) },
+                  options: CATEGORY_OPTIONS,
+                },
+              ]}
+            />
+          </div>
+
+          <DataTable
+            columns={columns}
+            data={tickets}
+            isLoading={isLoading}
+            emptyTitle="No tickets found"
+            emptyDesc="No support tickets match your filters"
+            onRowClick={(row) => navigate(`/support/${row._id}`)}
           />
+
+          {pagination.total > 0 && (
+            <Pagination page={page} totalPages={pagination.pages} total={pagination.total} limit={20} onPageChange={setPage} />
+          )}
         </div>
-
-        <DataTable
-          columns={columns}
-          data={tickets}
-          isLoading={isLoading}
-          emptyTitle="No tickets found"
-          emptyDesc="No support tickets match your filters"
-          onRowClick={(row) => navigate(`/support/${row._id}`)}
-        />
-
-        {pagination.total > 0 && (
-          <Pagination page={page} totalPages={pagination.pages} total={pagination.total} limit={20} onPageChange={setPage} />
-        )}
       </div>
     </div>
   )

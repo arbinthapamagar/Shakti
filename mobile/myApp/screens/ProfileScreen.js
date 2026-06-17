@@ -9,7 +9,9 @@ import {
   TextInput,
 } from 'react-native';
 import DriverVehicleScreen from './DriverVehicleScreen';
+import SupportScreen from './SupportScreen';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { ChevronIcon, StarIcon } from '../components/Icons';
 import MapPicker from '../components/MapPicker';
 import { confirm as hapticConfirm } from '../components/haptics';
@@ -26,6 +28,9 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { userApi } from '../api/user.api';
 import { colors } from '../theme/colors';
+import { type } from '../theme';
+import { getThemeMode, setThemeMode } from '../theme/themeStore';
+import { reloadApp } from '../theme/reload';
 
 
 const PAYMENT_LABELS = {
@@ -84,6 +89,42 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription, o
   const [tfaEnabled, setTfaEnabled] = useState(false);
   const [modal, setModal] = useState(null);
   const closeModal = () => setModal(null);
+  const [helpView, setHelpView] = useState(null); // null | 'support'
+  const [sosBusy, setSosBusy] = useState(false);
+
+  // SOS: confirm, grab location, fire the emergency alert (it lands in the admin panel).
+  const triggerSOS = () => {
+    Alert.alert(
+      'Send emergency alert?',
+      'This immediately shares your live location with the Shakti safety team.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send SOS',
+          style: 'destructive',
+          onPress: async () => {
+            setSosBusy(true);
+            let loc = {};
+            try {
+              const { status } = await Location.requestForegroundPermissionsAsync();
+              if (status === 'granted') {
+                const pos = await Location.getCurrentPositionAsync({});
+                loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              }
+            } catch { /* send without location */ }
+            try {
+              await userApi.triggerEmergency({ ...loc, role: onSwitchToPassenger ? 'driver' : 'passenger' });
+              Alert.alert('Alert sent', 'Our safety team has been notified and is responding.');
+            } catch (e) {
+              Alert.alert('Failed', e?.message || 'Could not send alert. Call local emergency services.');
+            } finally {
+              setSosBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const isDriver = driverStatus === 'approved';
 
@@ -153,20 +194,43 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription, o
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
     });
     if (!result.canceled && result.assets?.[0]?.uri) {
       const uri = result.assets[0].uri;
+      const prev = avatarUri;
       setAvatarUri(uri);
       try {
         await userApi.uploadAvatar(uri);
       } catch (err) {
+        setAvatarUri(prev);
         Alert.alert('Upload failed', err.message || 'Could not upload avatar.');
       }
     }
+  };
+
+  const removeAvatar = () => {
+    if (!avatarUri) return;
+    Alert.alert('Remove photo', 'Remove your profile photo?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          const prev = avatarUri;
+          setAvatarUri(null);
+          try {
+            await userApi.deleteAvatar();
+          } catch (err) {
+            setAvatarUri(prev);
+            Alert.alert('Failed', err.message || 'Could not remove photo.');
+          }
+        },
+      },
+    ]);
   };
 
   const initials = (user?.name || 'U')
@@ -217,6 +281,11 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription, o
             <View style={styles.cameraBadge}>
               <Ionicons name="camera" size={14} color="#ffffff" />
             </View>
+            {avatarUri && (
+              <Pressable style={styles.removeBadge} onPress={removeAvatar} hitSlop={8}>
+                <Ionicons name="trash" size={13} color="#ffffff" />
+              </Pressable>
+            )}
           </Pressable>
 
           <Text style={styles.name}>{profile.name}</Text>
@@ -485,6 +554,26 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription, o
           </View>
         </Section>
 
+        <Section title="Help & safety">
+          <View style={styles.safetyRow}>
+            {/* Passengers reach Support from the bottom nav tab; drivers (no tab bar) keep it here. */}
+            {onSwitchToPassenger && (
+              <Pressable style={styles.supportBtn} onPress={() => setHelpView('support')}>
+                <Ionicons name="chatbubble-ellipses" size={20} color={colors.primary} />
+                <Text style={styles.supportBtnText}>Support</Text>
+              </Pressable>
+            )}
+            <Pressable style={styles.sosBtn} onPress={triggerSOS} disabled={sosBusy}>
+              <Ionicons name="warning" size={20} color="#fff" />
+              <Text style={styles.sosBtnText}>{sosBusy ? 'Sending…' : 'Emergency SOS'}</Text>
+            </Pressable>
+          </View>
+        </Section>
+
+        <Section title="Appearance">
+          <ThemePicker />
+        </Section>
+
         <Section title="Security & support">
           <LinkRow
             label="Change password"
@@ -502,12 +591,15 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription, o
           <LinkRow
             label="Help centre"
             onPress={() => setModal({ type: 'help' })}
+            last={!onSwitchToPassenger}
           />
-          <LinkRow
-            label="Contact support"
-            onPress={() => setModal({ type: 'contact' })}
-            last
-          />
+          {onSwitchToPassenger && (
+            <LinkRow
+              label="Contact support"
+              onPress={() => setHelpView('support')}
+              last
+            />
+          )}
         </Section>
 
         <Section title="About">
@@ -534,6 +626,14 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription, o
         tfaEnabled={tfaEnabled}
         setTfaEnabled={setTfaEnabled}
       />
+
+      {helpView === 'support' && (
+        <View style={styles.overlay}>
+          <SafeAreaView style={{ flex: 1 }}>
+            <SupportScreen onBack={() => setHelpView(null)} role={onSwitchToPassenger ? 'driver' : 'passenger'} />
+          </SafeAreaView>
+        </View>
+      )}
 
       {driverOverlay === 'vehicle' && (
         <View style={styles.overlay}>
@@ -972,6 +1072,38 @@ function ContactSupport({ close }) {
   );
 }
 
+const THEME_OPTIONS = [
+  { key: 'system', label: 'System', icon: 'phone-portrait-outline' },
+  { key: 'light', label: 'Light', icon: 'sunny-outline' },
+  { key: 'dark', label: 'Dark', icon: 'moon-outline' },
+];
+
+function ThemePicker() {
+  const [mode, setMode] = useState(getThemeMode());
+  const choose = (k) => {
+    if (k === mode) return;
+    setMode(k);
+    setThemeMode(k);
+    Alert.alert('Theme updated', 'The app will restart to apply your new theme.', [
+      { text: 'Later' },
+      { text: 'Apply now', onPress: () => reloadApp() },
+    ]);
+  };
+  return (
+    <View style={styles.themeRow}>
+      {THEME_OPTIONS.map((o) => {
+        const active = mode === o.key;
+        return (
+          <Pressable key={o.key} onPress={() => choose(o.key)} style={[styles.themeOpt, active && styles.themeOptActive]}>
+            <Ionicons name={o.icon} size={20} color={active ? colors.primary : colors.textMuted} />
+            <Text style={[styles.themeOptText, active && { color: colors.primary }]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function Section({ title, children, collapsible, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   if (!collapsible) {
@@ -1152,7 +1284,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     padding: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1191,6 +1323,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  removeBadge: {
+    position: 'absolute',
+    bottom: 2,
+    left: 2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.danger,
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   name: {
     color: colors.text,
     fontSize: 22,
@@ -1212,7 +1357,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 4,
     borderRadius: 999,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: '#cfe6d8',
     gap: 4,
@@ -1243,7 +1388,7 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#cfe6d8',
@@ -1532,6 +1677,26 @@ const styles = StyleSheet.create({
   },
   signOutText: { color: colors.danger, fontSize: 15, fontWeight: '700' },
 
+  safetyRow: { flexDirection: 'row', gap: 12, padding: 14 },
+  themeRow: { flexDirection: 'row', gap: 10, padding: 14 },
+  themeOpt: {
+    flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14,
+    backgroundColor: colors.surfaceMuted, borderWidth: 1.5, borderColor: colors.border,
+    borderRadius: 14,
+  },
+  themeOptActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  themeOptText: { ...type.caption, color: colors.textMuted },
+  supportBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: colors.primarySoft, borderRadius: 14, paddingVertical: 14,
+  },
+  supportBtnText: { color: colors.primary, fontSize: 14, fontWeight: '800' },
+  sosBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: colors.danger, borderRadius: 14, paddingVertical: 14,
+  },
+  sosBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+
   linkRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   linkBadge: {
     paddingHorizontal: 8,
@@ -1548,7 +1713,7 @@ const styles = StyleSheet.create({
   },
   modalDismiss: { flex: 1 },
   modalSheet: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,

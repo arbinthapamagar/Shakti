@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
+import { useFonts, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque';
+import { HankenGrotesk_400Regular, HankenGrotesk_500Medium, HankenGrotesk_600SemiBold, HankenGrotesk_700Bold } from '@expo-google-fonts/hanken-grotesk';
+import { SplineSansMono_500Medium, SplineSansMono_600SemiBold } from '@expo-google-fonts/spline-sans-mono';
 import TabBar from './components/TabBar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import DriverShell from './screens/driver/DriverShell';
@@ -17,7 +20,9 @@ import SubscriptionScreen from './screens/SubscriptionScreen';
 import SupportScreen from './screens/SupportScreen';
 import TripsScreen from './screens/TripsScreen';
 import WalletScreen from './screens/WalletScreen';
-import { colors } from './theme/colors';
+import { colors, isDark } from './theme/colors';
+
+const STATUS_BAR_STYLE = isDark ? 'light-content' : 'dark-content';
 
 // authScreen values:
 // 'role-select' | 'login' | 'register' | 'otp' — unauthenticated
@@ -72,7 +77,7 @@ function AppShell() {
   if (user && authScreen === 'driver-vehicle') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar barStyle={STATUS_BAR_STYLE} backgroundColor={colors.background} />
         <DriverVehicleScreen
           onSuccess={() => setAuthScreen('driver-pending')}
           onBack={() => setAuthScreen('otp')}
@@ -84,7 +89,7 @@ function AppShell() {
   if (user && authScreen === 'driver-pending') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar barStyle={STATUS_BAR_STYLE} backgroundColor={colors.background} />
         <DriverPendingScreen />
       </SafeAreaView>
     );
@@ -94,7 +99,7 @@ function AppShell() {
   if (!user) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar barStyle={STATUS_BAR_STYLE} backgroundColor={colors.background} />
 
         {authScreen === 'role-select' && (
           <RoleSelectScreen
@@ -144,7 +149,7 @@ function AppShell() {
   if (effectiveMode === 'driver') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar barStyle={STATUS_BAR_STYLE} backgroundColor={colors.background} />
         <DriverShell
           initialOnline={user?.driverProfile?.isOnline ?? false}
           onSwitchToPassenger={() => setMode('passenger')}
@@ -157,7 +162,7 @@ function AppShell() {
   // ── Passenger app ─────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={STATUS_BAR_STYLE} backgroundColor={colors.background} />
 
       {overlay === 'subscription' && (
         <SubscriptionScreen onBack={() => setOverlay(null)} />
@@ -189,6 +194,26 @@ function AppShell() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
+    HankenGrotesk_400Regular,
+    HankenGrotesk_500Medium,
+    HankenGrotesk_600SemiBold,
+    HankenGrotesk_700Bold,
+    SplineSansMono_500Medium,
+    SplineSansMono_600SemiBold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <SafeAreaView style={styles.splash}>
+        <StatusBar barStyle={STATUS_BAR_STYLE} backgroundColor={colors.background} />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <AuthProvider>
       <AppShell />

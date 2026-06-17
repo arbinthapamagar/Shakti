@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BellIcon,
+  CardIcon,
+  ChatIcon,
   DocIcon,
   HomeIcon,
   UserIcon,
@@ -8,12 +10,15 @@ import {
 } from './Icons';
 import { colors } from '../theme/colors';
 
+const ACTIVE = '#ea580c';
 const TABS = [
-  { id: 'home', label: 'Home', Icon: HomeIcon, color: '#1f7a4d' },
-  { id: 'trips', label: 'Trips', Icon: DocIcon, color: '#5c6fff' },
-  { id: 'wallet', label: 'Wallet', Icon: WalletIcon, color: '#c98a2a' },
-  { id: 'inbox', label: 'Inbox', Icon: BellIcon, color: '#e0464a' },
-  { id: 'account', label: 'Account', Icon: UserIcon, color: '#7a4d20' },
+  { id: 'home', label: 'Home', Icon: HomeIcon, color: ACTIVE },
+  { id: 'trips', label: 'Trips', Icon: DocIcon, color: ACTIVE },
+  { id: 'wallet', label: 'Wallet', Icon: WalletIcon, color: ACTIVE },
+  { id: 'subscribe', label: 'Subscribe', Icon: CardIcon, color: ACTIVE },
+  { id: 'inbox', label: 'Inbox', Icon: BellIcon, color: ACTIVE },
+  { id: 'support', label: 'Support', Icon: ChatIcon, color: ACTIVE },
+  { id: 'account', label: 'Account', Icon: UserIcon, color: ACTIVE },
 ];
 
 export default function TabBar({ active, onChange }) {
@@ -51,7 +56,7 @@ export default function TabBar({ active, onChange }) {
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: 10,

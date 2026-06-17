@@ -95,12 +95,6 @@ const userSchema = new mongoose.Schema(
       enum: ["cash", "khalti", "esewa", "wallet"],
       default: "cash",
     },
-    // Whether this user may send voice/document attachments in support chat.
-    // Admin-controlled per user from the support section.
-    supportAttachmentsAllowed: {
-      type: Boolean,
-      default: true,
-    },
 
 
     currentLocation: {

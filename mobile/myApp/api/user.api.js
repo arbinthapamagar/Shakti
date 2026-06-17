@@ -21,6 +21,7 @@ export const userApi = {
     if (!res.ok) throw new Error(json.message || `HTTP ${res.status}`);
     return json;
   },
+  deleteAvatar: () => api.del('/users/profile/avatar'),
 
   // Location
   updateLocation: (coordinates) => api.put('/users/location', { coordinates }),
@@ -62,10 +63,38 @@ export const userApi = {
   resumeSubscription: (id) => api.put(`/users/subscriptions/${id}/resume`),
 
   // Support
+  getSupportSettings: () => api.get('/users/support/settings'),
   getMyTickets: (page = 1) => api.get(`/users/support?page=${page}&limit=20`),
   getTicketById: (id) => api.get(`/users/support/${id}`),
   createTicket: (data) => api.post('/users/support', data),
   addTicketMessage: (id, message) => api.post(`/users/support/${id}/messages`, { message }),
+  // Voice note / document attachment on a ticket. `file` = { uri, name, type }.
+  sendTicketAttachment: async (id, { message, file }) => {
+    const { tokenStore } = await import('./tokenStore');
+    const { accessToken } = tokenStore.get();
+    const { BASE_URL } = await import('./client');
+    const form = new FormData();
+    if (message) form.append('message', message);
+    form.append('attachment', { uri: file.uri, name: file.name, type: file.type });
+    const res = await fetch(`${BASE_URL}/users/support/${id}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to send attachment');
+    return json;
+  },
+
+  // Fare quote (standard fare from Pricing Control — used as the bid floor)
+  getFareQuote: (params) => {
+    const qs = new URLSearchParams(params).toString();
+    return api.get(`/users/fare-quote?${qs}`);
+  },
+
+  // Emergency / SOS
+  triggerEmergency: (data) => api.post('/users/emergency', data),
+  getMyEmergencies: () => api.get('/users/emergency'),
 
   // Driver
   registerAsDriver: (data) => api.post('/users/driver/register', data),
@@ -99,4 +128,6 @@ export const userApi = {
     const qs = new URLSearchParams(params).toString();
     return api.get(`/users/driver/earnings${qs ? `?${qs}` : ''}`);
   },
+  requestWithdrawal: (data) => api.post('/users/driver/withdrawals', data),
+  getMyWithdrawals: () => api.get('/users/driver/withdrawals'),
 };
