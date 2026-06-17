@@ -1,16 +1,19 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCircle, XCircle, ExternalLink, Star, Car, User, FileText, TrendingUp } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, Star, Car, FileText, TrendingUp, Eye } from 'lucide-react'
 import { Tabs } from '../../components/ui/Tabs'
 import { Button } from '../../components/ui/Button'
 import { StatusBadge } from '../../components/shared/StatusBadge'
+import { DataTable } from '../../components/shared/DataTable'
+import { DocumentLightbox } from '../../components/shared/DocumentLightbox'
 import { Avatar } from '../../components/ui/Avatar'
 import { Badge } from '../../components/ui/Badge'
 import { TableSpinner } from '../../components/ui/Spinner'
 import { driversApi } from '../../api/drivers.api'
 import { documentsApi } from '../../api/documents.api'
 import { formatDate, formatCurrency, formatRelative } from '../../utils/format'
+import { isPdf, docTypeLabel } from '../../utils/documents'
 import toast from 'react-hot-toast'
 
 export default function DriverDetail() {
@@ -18,7 +21,7 @@ export default function DriverDetail() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('profile')
-  const [lightboxUrl, setLightboxUrl] = useState(null)
+  const [lightboxDoc, setLightboxDoc] = useState(null)
 
   const { data: driverRes, isLoading } = useQuery({
     queryKey: ['driver', id],
@@ -58,6 +61,78 @@ export default function DriverDetail() {
     { value: 'vehicle', label: 'Vehicle' },
     { value: 'documents', label: 'Documents' },
     { value: 'stats', label: 'Statistics' },
+  ]
+
+  const docColumns = [
+    {
+      key: 'type',
+      header: 'Document',
+      render: (val, row) => (
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-gray-50 border border-gray-100 overflow-hidden flex items-center justify-center shrink-0">
+            {row.fileUrl && !isPdf(row.fileUrl) ? (
+              <img src={row.fileUrl} alt={val} className="h-full w-full object-cover" />
+            ) : (
+              <FileText className={`h-5 w-5 ${row.fileUrl ? 'text-orange-500' : 'text-gray-300'}`} />
+            )}
+          </div>
+          <span className="text-sm font-medium text-gray-900">{docTypeLabel(val)}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'expiresAt',
+      header: 'Expiry',
+      render: (val) => <span className="text-xs text-gray-500">{val ? formatDate(val) : '—'}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (val, row) => (
+        <div>
+          <StatusBadge status={val} />
+          {row.rejectionReason && (
+            <p className="text-xs text-red-500 mt-1 max-w-[220px] truncate" title={row.rejectionReason}>
+              {row.rejectionReason}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: '_id',
+      header: 'Actions',
+      render: (docId, row) => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); setLightboxDoc(row) }}
+            className="p-1.5 hover:bg-orange-50 rounded text-gray-400 hover:text-orange-600"
+            title="View document"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          {row.status === 'pending' && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); verifyDoc.mutate(docId) }}
+                disabled={verifyDoc.isPending}
+                className="p-1.5 hover:bg-emerald-50 rounded text-gray-400 hover:text-emerald-600 disabled:opacity-60"
+                title="Verify"
+              >
+                <CheckCircle className="h-4 w-4" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); rejectDoc.mutate({ docId, reason: 'Document unclear' }) }}
+                className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-600"
+                title="Reject"
+              >
+                <XCircle className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        </div>
+      ),
+    },
   ]
 
   if (isLoading) return <TableSpinner />
@@ -191,7 +266,7 @@ export default function DriverDetail() {
                     src={driver.documents.vehicleImage}
                     alt="Vehicle"
                     className="h-40 w-full object-cover rounded-lg cursor-pointer"
-                    onClick={() => setLightboxUrl(driver.documents.vehicleImage)}
+                    onClick={() => setLightboxDoc({ fileUrl: driver.documents.vehicleImage, type: 'vehicle_photo' })}
                   />
                 </div>
               )}
@@ -199,60 +274,15 @@ export default function DriverDetail() {
           )}
 
           {activeTab === 'documents' && (
-            <div>
-              {docsLoading ? <TableSpinner /> : (
-                <div className="grid grid-cols-2 gap-4">
-                  {docs.length === 0 && (
-                    <p className="col-span-2 text-sm text-gray-400 text-center py-8">No documents uploaded</p>
-                  )}
-                  {docs.map((doc) => (
-                    <div key={doc._id} className="border border-gray-100 rounded-xl overflow-hidden">
-                      <div className="relative h-40 bg-gray-50">
-                        {doc.fileUrl ? (
-                          <img
-                            src={doc.fileUrl}
-                            alt={doc.type}
-                            className="h-full w-full object-cover cursor-pointer hover:opacity-90"
-                            onClick={() => setLightboxUrl(doc.fileUrl)}
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-full">
-                            <FileText className="h-12 w-12 text-gray-300" />
-                          </div>
-                        )}
-                        <div className="absolute top-2 right-2">
-                          <StatusBadge status={doc.status} />
-                        </div>
-                      </div>
-                      <div className="p-3">
-                        <p className="text-sm font-medium text-gray-800 capitalize">{doc.type?.replace(/_/g, ' ')}</p>
-                        {doc.expiresAt && (
-                          <p className="text-xs text-gray-400">Expires: {formatDate(doc.expiresAt)}</p>
-                        )}
-                        {doc.status === 'pending' && (
-                          <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={() => verifyDoc.mutate(doc._id)}
-                              className="flex-1 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
-                            >
-                              Verify
-                            </button>
-                            <button
-                              onClick={() => rejectDoc.mutate({ docId: doc._id, reason: 'Document unclear' })}
-                              className="flex-1 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        )}
-                        {doc.rejectionReason && (
-                          <p className="text-xs text-red-500 mt-1">Reason: {doc.rejectionReason}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="-mx-6 -mb-6">
+              <DataTable
+                columns={docColumns}
+                data={docs}
+                isLoading={docsLoading}
+                onRowClick={setLightboxDoc}
+                emptyTitle="No documents uploaded"
+                emptyDesc="This driver has not submitted any documents yet"
+              />
             </div>
           )}
 
@@ -276,12 +306,8 @@ export default function DriverDetail() {
         </div>
       </div>
 
-      {/* Lightbox */}
-      {lightboxUrl && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightboxUrl(null)}>
-          <img src={lightboxUrl} alt="Document" className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain" />
-        </div>
-      )}
+      {/* Lightbox — opens PDFs as PDF, images inline */}
+      <DocumentLightbox doc={lightboxDoc} onClose={() => setLightboxDoc(null)} />
     </div>
   )
 }
