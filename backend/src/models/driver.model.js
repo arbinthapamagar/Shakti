@@ -14,6 +14,13 @@ const driverSchema = new mongoose.Schema(
             enum: ['bike', 'scooter', 'tuktuk', 'tuktuk_delivery', 'taxi', 'comfort'],
             required: true,
         },
+
+        // City the driver operates in — used to classify drivers and apply that
+        // city's pricing. Matches a city name in the pricing config.
+        city: {
+            type: String,
+            default: null,
+        },
         vehiclePlate: {
             type: String,
             required: true,
@@ -58,7 +65,8 @@ const driverSchema = new mongoose.Schema(
         rating: { type: Number, default: 0 },
         totalRatings: { type: Number, default: 0 },
         totalRides: { type: Number, default: 0 },
-        earnings: { type: Number, default: 0 },
+        earnings: { type: Number, default: 0 },        // lifetime gross earnings (never decreases)
+        walletBalance: { type: Number, default: 0 },   // withdrawable balance (earnings + admin credits − cashouts)
         cancelledRides: { type: Number, default: 0 },
 
         lastActiveAt: { type: Date, default: null },

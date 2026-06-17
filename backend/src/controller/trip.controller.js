@@ -5,9 +5,23 @@ import { Driver } from '../models/driver.model.js';
 import { User } from '../models/user.model.js';
 import { Transaction } from '../models/transaction.model.js';
 import { Notification } from '../models/notification.model.js';
+import { Pricing } from '../models/pricing.model.js';
+import { computeStandardFare } from '../utils/fareCalc.js';
 import { apiError } from '../utils/apiError.js';
 import { apiResponse } from '../utils/apiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+
+// Straight-line distance between two [lng, lat] points, in metres.
+function metresBetween([lng1, lat1], [lng2, lat2]) {
+    const R = 6371000;
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+const MIN_TRIP_METRES = 300;
 
 const DRIVER_VEHICLE_MAP = {
     tuktuk: ['tuktuk', 'tuktuk_delivery'],
@@ -30,6 +44,22 @@ const createTrip = asyncHandler(async (req, res) => {
     if (!dropoff.address || !dropoff.location?.coordinates) {
         throw new apiError(400, 'Dropoff address and coordinates are required');
     }
+
+    // Pickup and destination must be a real trip apart (> 300 m).
+    const metres = metresBetween(pickup.location.coordinates, dropoff.location.coordinates);
+    if (metres < MIN_TRIP_METRES) {
+        throw new apiError(400, 'Your destination and current point must be more than 300 m apart.');
+    }
+
+    // Bid floor: the offer must be at least the standard fare from Pricing Control.
+    const pricing = await Pricing.findOne({ key: 'global' });
+    if (pricing) {
+        const standard = computeStandardFare(pricing, { vehicleType, distanceKm: metres / 1000 });
+        if (standard && parseFloat(offeredPrice) < standard) {
+            throw new apiError(400, `Your bid must be at least NPR ${standard} (the standard fare). You can offer more, not less.`);
+        }
+    }
+
     if (paymentMethod === 'wallet') {
         const user = await User.findById(req.user._id).select('walletBalance');
         if (user.walletBalance < offeredPrice) {
@@ -208,6 +238,7 @@ const updateTripStatusByDriver = asyncHandler(async (req, res) => {
             );
 
             driver.earnings = parseFloat((driver.earnings + driverEarning).toFixed(2));
+            driver.walletBalance = parseFloat(((driver.walletBalance || 0) + driverEarning).toFixed(2));
 
             if (trip.paymentMethod === 'wallet') {
                 const updated = await User.findOneAndUpdate(

@@ -2,6 +2,7 @@ import { User } from '../../models/user.model.js';
 import { Driver } from '../../models/driver.model.js';
 import { Document } from '../../models/doeument.model.js';
 import { Trip } from '../../models/trip.model.js';
+import { Withdrawal } from '../../models/withdrawal.model.js';
 import { apiError } from '../../utils/apiError.js';
 import { apiResponse } from '../../utils/apiResponse.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
@@ -170,12 +171,76 @@ const getNearbyTrips = asyncHandler(async (req, res) => {
 });
 
 const getMyEarnings = asyncHandler(async (req, res) => {
-    const driver = await Driver.findOne({ userId: req.user._id }).select('earnings totalRides rating totalRatings cancelledRides');
+    const driver = await Driver.findOne({ userId: req.user._id }).select('earnings walletBalance totalRides rating totalRatings cancelledRides');
     if (!driver) throw new apiError(404, 'Driver profile not found');
     return res.status(200).json(new apiResponse(200, driver, 'Earnings fetched'));
+});
+
+const MIN_WITHDRAWAL = 100;
+
+const requestWithdrawal = asyncHandler(async (req, res) => {
+    const { amount, method, destination = {}, note } = req.body;
+
+    const parsedAmount = parseFloat(amount);
+    if (!parsedAmount || parsedAmount <= 0) throw new apiError(400, 'Valid amount is required');
+    if (parsedAmount < MIN_WITHDRAWAL) throw new apiError(400, `Minimum withdrawal is NPR ${MIN_WITHDRAWAL}`);
+
+    if (!['bank', 'khalti', 'esewa'].includes(method)) {
+        throw new apiError(400, 'Method must be bank, khalti or esewa');
+    }
+
+    // Validate destination details per method
+    if (method === 'bank') {
+        if (!destination.bankName || !destination.accountName || !destination.accountNumber) {
+            throw new apiError(400, 'Bank name, account name and account number are required');
+        }
+    } else if (!destination.walletId) {
+        throw new apiError(400, `Your ${method} ID / phone number is required`);
+    }
+
+    const driver = await Driver.findOne({ userId: req.user._id });
+    if (!driver) throw new apiError(404, 'Driver profile not found');
+
+    // Atomically hold the funds so a driver can't request more than they have.
+    const held = await Driver.findOneAndUpdate(
+        { _id: driver._id, walletBalance: { $gte: parsedAmount } },
+        { $inc: { walletBalance: -parsedAmount } },
+        { new: true }
+    );
+    if (!held) throw new apiError(400, 'Insufficient wallet balance');
+
+    const withdrawal = await Withdrawal.create({
+        driverId: driver._id,
+        amount: parsedAmount,
+        method,
+        destination: {
+            bankName: destination.bankName || null,
+            accountName: destination.accountName || null,
+            accountNumber: destination.accountNumber || null,
+            walletId: destination.walletId || null,
+        },
+        note: note?.trim() || null,
+        status: 'pending',
+    });
+
+    return res.status(201).json(
+        new apiResponse(201, { withdrawal, walletBalance: held.walletBalance }, 'Withdrawal requested')
+    );
+});
+
+const getMyWithdrawals = asyncHandler(async (req, res) => {
+    const driver = await Driver.findOne({ userId: req.user._id }).select('_id');
+    if (!driver) throw new apiError(404, 'Driver profile not found');
+
+    const withdrawals = await Withdrawal.find({ driverId: driver._id })
+        .sort({ createdAt: -1 })
+        .limit(50);
+
+    return res.status(200).json(new apiResponse(200, withdrawals, 'Withdrawals fetched'));
 });
 
 export {
     registerAsDriver, getMyDriverProfile, updateDriverProfile, uploadDriverDocument,
     goOnline, goOffline, updateDriverLocation, getNearbyTrips, getMyEarnings,
+    requestWithdrawal, getMyWithdrawals,
 };

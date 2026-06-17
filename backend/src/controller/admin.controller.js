@@ -6,11 +6,16 @@ import { Trip } from '../models/trip.model.js';
 import { Bid } from '../models/bid.model.js';
 import { Subscription } from '../models/subscription.model.js';
 import { Transaction } from '../models/transaction.model.js';
+import { Withdrawal } from '../models/withdrawal.model.js';
+import { Pricing, defaultPricing, VEHICLE_TYPES } from '../models/pricing.model.js';
+import { Emergency } from '../models/emergency.model.js';
 import { SupportTicket } from '../models/supportTicket.model.js';
 import { Notification } from '../models/notification.model.js';
 import { apiError } from '../utils/apiError.js';
 import { apiResponse } from '../utils/apiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { sendEmail } from '../config/sendEmail.js';
+import { grantEmailTemplate } from '../utils/grantEmailTemplate.js';
 import jwt from 'jsonwebtoken';
 
 const cookieOptions = {
@@ -751,6 +756,273 @@ const getDriverEarnings = asyncHandler(async (req, res) => {
     }, 'Driver earnings fetched'));
 });
 
+// ─── Driver payouts (grants & withdrawals) ─────────────────────────────────────
+
+// Admin grants / credits money to a driver's withdrawable wallet balance.
+const grantDriverMoney = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.managePayments) throw new apiError(403, 'Insufficient permissions');
+
+    const { amount, note } = req.body;
+    const parsedAmount = parseFloat(amount);
+    if (!parsedAmount || parsedAmount <= 0) throw new apiError(400, 'Valid amount is required');
+    if (parsedAmount > 1000000) throw new apiError(400, 'Maximum grant is NPR 1,000,000');
+
+    const trimmedNote = note?.trim() || null;
+
+    const driver = await Driver.findByIdAndUpdate(
+        req.params.id,
+        { $inc: { walletBalance: parsedAmount } },
+        { new: true }
+    ).populate('userId', 'name email');
+    if (!driver) throw new apiError(404, 'Driver not found');
+
+    const transaction = await Transaction.create({
+        driverId: driver._id,
+        amount: parsedAmount,
+        type: 'admin_credit',
+        method: 'wallet',
+        status: 'completed',
+        note: trimmedNote,
+    });
+
+    // In-app notification (carries the note). _skipEmail: the dedicated grant
+    // email below is richer than the generic notification email, so suppress
+    // the auto-email from the Notification post-save hook for this one.
+    const grantNotification = new Notification({
+        userId: driver.userId._id,
+        title: 'Money Added to Your Wallet',
+        body: `NPR ${parsedAmount} has been credited to your wallet${trimmedNote ? ` — ${trimmedNote}` : ''}.`,
+        type: 'payment',
+        refId: transaction._id,
+    });
+    grantNotification._skipEmail = true;
+    await grantNotification.save();
+
+    // Email with the grant template (fire-and-forget; won't block the response)
+    if (driver.userId?.email) {
+        sendEmail({
+            sendTo: driver.userId.email,
+            subject: 'Funds added to your Shakti wallet',
+            html: grantEmailTemplate({ name: driver.userId.name, amount: parsedAmount, note: trimmedNote }),
+        }).catch((err) => console.error('Grant email error:', err?.message));
+    }
+
+    return res.status(200).json(new apiResponse(200, {
+        walletBalance: driver.walletBalance,
+        transaction,
+    }, `NPR ${parsedAmount} granted to driver`));
+});
+
+const getWithdrawals = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.managePayments) throw new apiError(403, 'Insufficient permissions');
+
+    const { page = 1, limit = 20, status } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 20, 100);
+    const skip = (parseInt(page) - 1) * limitNum;
+
+    const filter = {};
+    if (status) filter.status = status;
+
+    const [withdrawals, total] = await Promise.all([
+        Withdrawal.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .populate({ path: 'driverId', select: 'earnings walletBalance userId', populate: { path: 'userId', select: 'name phone avatarUrl' } })
+            .populate('processedBy', 'name'),
+        Withdrawal.countDocuments(filter),
+    ]);
+
+    return res.status(200).json(new apiResponse(200, {
+        withdrawals,
+        pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
+    }, 'Withdrawals fetched'));
+});
+
+// Process a withdrawal: approve, reject (refunds the held amount) or mark paid.
+const processWithdrawal = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.managePayments) throw new apiError(403, 'Insufficient permissions');
+
+    const { action, adminNote } = req.body;
+    if (!['approve', 'reject', 'paid'].includes(action)) {
+        throw new apiError(400, 'Action must be approve, reject or paid');
+    }
+
+    const withdrawal = await Withdrawal.findById(req.params.id);
+    if (!withdrawal) throw new apiError(404, 'Withdrawal not found');
+    if (['rejected', 'paid'].includes(withdrawal.status)) {
+        throw new apiError(400, `Withdrawal is already ${withdrawal.status}`);
+    }
+
+    if (action === 'approve') {
+        if (withdrawal.status !== 'pending') throw new apiError(400, 'Only pending requests can be approved');
+        withdrawal.status = 'approved';
+    } else if (action === 'reject') {
+        // Refund the held amount back to the driver's wallet.
+        await Driver.findByIdAndUpdate(withdrawal.driverId, { $inc: { walletBalance: withdrawal.amount } });
+        withdrawal.status = 'rejected';
+    } else if (action === 'paid') {
+        const transaction = await Transaction.create({
+            driverId: withdrawal.driverId,
+            amount: withdrawal.amount,
+            type: 'wallet_withdrawal',
+            method: withdrawal.method === 'bank' ? 'wallet' : withdrawal.method,
+            status: 'completed',
+        });
+        withdrawal.status = 'paid';
+        withdrawal.transactionId = transaction._id;
+    }
+
+    withdrawal.adminNote = adminNote?.trim() || withdrawal.adminNote;
+    withdrawal.processedBy = req.admin._id;
+    withdrawal.processedAt = new Date();
+    await withdrawal.save();
+
+    const driver = await Driver.findById(withdrawal.driverId).select('userId');
+    if (driver) {
+        const messages = {
+            approve: `Your withdrawal of NPR ${withdrawal.amount} has been approved and is being processed.`,
+            reject: `Your withdrawal of NPR ${withdrawal.amount} was rejected and refunded to your wallet${adminNote ? ` — ${adminNote}` : ''}.`,
+            paid: `Your withdrawal of NPR ${withdrawal.amount} has been paid out.`,
+        };
+        await Notification.create({
+            userId: driver.userId,
+            title: 'Withdrawal Update',
+            body: messages[action],
+            type: 'payment',
+            refId: withdrawal._id,
+        });
+    }
+
+    return res.status(200).json(new apiResponse(200, withdrawal, `Withdrawal ${withdrawal.status}`));
+});
+
+// ─── Pricing control ───────────────────────────────────────────────────────────
+
+// Returns the singleton pricing config, creating it with defaults on first access.
+const getPricing = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.managePayments) throw new apiError(403, 'Insufficient permissions');
+
+    let pricing = await Pricing.findOne({ key: 'global' });
+    if (!pricing) pricing = await Pricing.create(defaultPricing());
+
+    // Backfill any vehicle types missing from an older-shaped document so the
+    // admin UI (which iterates the current vehicle list) always has data.
+    const defaults = defaultPricing();
+    let changed = false;
+    for (const k of VEHICLE_TYPES) {
+        if (!pricing.vehicles?.[k]) { pricing.vehicles[k] = defaults.vehicles[k]; changed = true; }
+        for (const city of pricing.cities) {
+            if (!city.vehicleOverrides?.[k]) { city.vehicleOverrides[k] = { override: false, baseFare: 0 }; changed = true; }
+        }
+    }
+    if (changed) { pricing.markModified('vehicles'); pricing.markModified('cities'); await pricing.save(); }
+
+    return res.status(200).json(new apiResponse(200, pricing, 'Pricing fetched'));
+});
+
+// Replaces the editable config. The admin UI sends the whole object; we assign
+// known top-level sections and let the schema coerce/validate types.
+const updatePricing = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.managePayments) throw new apiError(403, 'Insufficient permissions');
+
+    let pricing = await Pricing.findOne({ key: 'global' });
+    if (!pricing) pricing = new Pricing(defaultPricing());
+
+    const body = req.body || {};
+    const scalarFields = ['electricityCost', 'vatPercent', 'commissionPercent', 'profitMarginPercent'];
+    for (const f of scalarFields) {
+        if (body[f] != null) {
+            const v = parseFloat(body[f]);
+            if (isNaN(v) || v < 0) throw new apiError(400, `Invalid ${f}`);
+            pricing[f] = v;
+        }
+    }
+
+    const objectFields = ['premium', 'longDistanceDiscount', 'vehicles'];
+    for (const f of objectFields) {
+        if (body[f] && typeof body[f] === 'object') {
+            pricing[f] = { ...pricing[f]?.toObject?.() ?? pricing[f], ...body[f] };
+            pricing.markModified(f);
+        }
+    }
+
+    if (Array.isArray(body.timeSlots)) {
+        pricing.timeSlots = body.timeSlots;
+        pricing.markModified('timeSlots');
+    }
+    if (Array.isArray(body.cities)) {
+        pricing.cities = body.cities;
+        pricing.markModified('cities');
+    }
+
+    pricing.updatedBy = req.admin._id;
+    await pricing.save();
+
+    return res.status(200).json(new apiResponse(200, pricing, 'Pricing updated'));
+});
+
+// ─── Emergency / SOS ───────────────────────────────────────────────────────────
+
+const getEmergencies = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.handleSupport) throw new apiError(403, 'Insufficient permissions');
+
+    const { page = 1, limit = 20, status } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 20, 100);
+    const skip = (parseInt(page) - 1) * limitNum;
+
+    const filter = {};
+    if (status) filter.status = status;
+
+    const [emergencies, total, activeCount] = await Promise.all([
+        Emergency.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .populate('userId', 'name phone avatarUrl')
+            .populate('handledBy', 'name'),
+        Emergency.countDocuments(filter),
+        Emergency.countDocuments({ status: 'active' }),
+    ]);
+
+    return res.status(200).json(new apiResponse(200, {
+        emergencies,
+        activeCount,
+        pagination: { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) },
+    }, 'Emergencies fetched'));
+});
+
+const updateEmergency = asyncHandler(async (req, res) => {
+    if (!req.admin.permissions.handleSupport) throw new apiError(403, 'Insufficient permissions');
+
+    const { status } = req.body;
+    if (!['acknowledged', 'resolved'].includes(status)) {
+        throw new apiError(400, 'Status must be acknowledged or resolved');
+    }
+
+    const emergency = await Emergency.findById(req.params.id);
+    if (!emergency) throw new apiError(404, 'Emergency not found');
+
+    emergency.status = status;
+    emergency.handledBy = req.admin._id;
+    if (status === 'acknowledged' && !emergency.acknowledgedAt) emergency.acknowledgedAt = new Date();
+    if (status === 'resolved') emergency.resolvedAt = new Date();
+    await emergency.save();
+
+    // Reassure the person who raised it
+    await Notification.create({
+        userId: emergency.userId,
+        title: status === 'resolved' ? 'Emergency Resolved' : 'Help Is On The Way',
+        body: status === 'resolved'
+            ? 'Your emergency alert has been resolved by our team.'
+            : 'Our team has received your emergency alert and is responding.',
+        type: 'general',
+        refId: emergency._id,
+    });
+
+    return res.status(200).json(new apiResponse(200, emergency, `Emergency ${status}`));
+});
+
 // ─── Documents ────────────────────────────────────────────────────────────────
 
 const getAllDocuments = asyncHandler(async (req, res) => {
@@ -1057,7 +1329,7 @@ const getSupportTickets = asyncHandler(async (req, res) => {
     if (status) filter.status = status;
     if (category) filter.category = category;
 
-    const [tickets, total] = await Promise.all([
+    const [tickets, total, byStatus] = await Promise.all([
         SupportTicket.find(filter)
             .sort({ createdAt: -1 })
             .skip(skip)
@@ -1065,10 +1337,14 @@ const getSupportTickets = asyncHandler(async (req, res) => {
             .populate('userId', 'name phone')
             .populate('assignedTo', 'name'),
         SupportTicket.countDocuments(filter),
+        SupportTicket.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
     ]);
 
+    const counts = { all: 0, open: 0, in_progress: 0, resolved: 0, closed: 0 };
+    byStatus.forEach((s) => { if (s._id in counts) counts[s._id] = s.count; counts.all += s.count; });
+
     return res.status(200).json(
-        new apiResponse(200, tickets, 'Support tickets fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
+        new apiResponse(200, { tickets, counts }, 'Support tickets fetched', { total, page: parseInt(page), limit: limitNum, pages: Math.ceil(total / limitNum) })
     );
 });
 
@@ -1076,7 +1352,9 @@ const getSupportTicketById = asyncHandler(async (req, res) => {
     if (!req.admin.permissions.handleSupport) throw new apiError(403, 'Insufficient permissions');
     const ticket = await SupportTicket.findById(req.params.id)
         .populate('userId', 'name phone')
-        .populate('assignedTo', 'name');
+        .populate('assignedTo', 'name')
+        .populate('comments.authorId', 'name')
+        .populate('comments.mentions', 'name');
     if (!ticket) throw new apiError(404, 'Ticket not found');
     return res.status(200).json(new apiResponse(200, ticket, 'Ticket fetched'));
 });
@@ -1247,6 +1525,9 @@ export {
     getAnalyticsOverview, getAnalyticsTrips, getAnalyticsUsers, getAnalyticsTopDrivers, getAnalyticsVehicleDistribution,
     getUsers, getUserById, updateUserStatus, getUserTrips, getUserTransactions,
     getDrivers, getDriverById, updateDriverStatus, verifyDriver, getDriverDocuments, getDriverTrips, getDriverEarnings,
+    grantDriverMoney, getWithdrawals, processWithdrawal,
+    getPricing, updatePricing,
+    getEmergencies, updateEmergency,
     getAllDocuments, verifyDocument, rejectDocument, seedTestDocument,
     getTrips, getTripByIdAdmin, getTripBids, cancelTripAdmin,
     getTransactions, getTransactionById, getTransactionSummary,
