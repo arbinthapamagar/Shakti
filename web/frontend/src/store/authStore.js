@@ -31,3 +31,10 @@ export const hasPermission = (admin, key) => {
   if (admin.role === 'superadmin') return true
   return admin.permissions?.[key] === true
 }
+
+// Dashboard is for superadmin/admin only — moderators and headmasters don't get it.
+export const canSeeDashboard = (admin) =>
+  admin?.role === 'superadmin' || admin?.role === 'admin'
+
+// Where a given admin should land (dashboard if allowed, else the support queue).
+export const homePath = (admin) => (canSeeDashboard(admin) ? '/dashboard' : '/support')

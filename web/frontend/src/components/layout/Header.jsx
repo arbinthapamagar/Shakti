@@ -1,7 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LogOut, Bell, User, Menu, Sun, Moon, Monitor } from 'lucide-react'
+import { LogOut, User, Menu, Sun, Moon, Monitor } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useThemeStore } from '../../store/themeStore'
+import { NotificationBell } from './NotificationBell'
 import { authApi } from '../../api/auth.api'
 import toast from 'react-hot-toast'
 
@@ -65,9 +66,7 @@ export function Header({ onMenuClick }) {
         >
           <ThemeIcon className="h-5 w-5" />
         </button>
-        <button className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-          <Bell className="h-5 w-5" />
-        </button>
+        <NotificationBell />
         <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
           <button
             onClick={() => navigate('/profile')}

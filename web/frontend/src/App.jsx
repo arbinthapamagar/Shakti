@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuthStore } from './store/authStore'
+import { useAuthStore, canSeeDashboard, homePath } from './store/authStore'
 import Layout from './components/layout/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -27,6 +27,18 @@ function PrivateRoute({ children }) {
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
+// Send each admin to their landing page (dashboard, or support for roles without it).
+function HomeRedirect() {
+  const { admin } = useAuthStore()
+  return <Navigate to={homePath(admin)} replace />
+}
+
+// Dashboard is restricted to superadmin/admin.
+function RequireDashboard({ children }) {
+  const { admin } = useAuthStore()
+  return canSeeDashboard(admin) ? children : <Navigate to={homePath(admin)} replace />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -39,8 +51,8 @@ export default function App() {
           </PrivateRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
+        <Route index element={<HomeRedirect />} />
+        <Route path="dashboard" element={<RequireDashboard><Dashboard /></RequireDashboard>} />
         <Route path="profile" element={<Profile />} />
         <Route path="users" element={<UserList />} />
         <Route path="drivers" element={<DriverList />} />
