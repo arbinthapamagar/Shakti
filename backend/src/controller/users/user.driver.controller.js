@@ -42,7 +42,7 @@ const registerAsDriver = asyncHandler(async (req, res) => {
         licenseExpiry: new Date(licenseExpiry),
     });
 
-    await User.findByIdAndUpdate(req.user._id, { driverProfile: driver._id });
+    await User.findByIdAndUpdate(req.user._id, { driverProfile: driver._id, role: 'driver' });
     return res.status(201).json(new apiResponse(201, driver, 'Driver registered. Pending admin approval.'));
 });
 

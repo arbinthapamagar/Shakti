@@ -89,7 +89,8 @@ export const userApi = {
   },
   goOnline: () => api.put('/users/driver/go-online'),
   goOffline: () => api.put('/users/driver/go-offline'),
-  updateDriverLocation: (coordinates) => api.put('/users/driver/location', { coordinates }),
+  updateDriverLocation: ({ lat, lng }) =>
+    api.put('/users/driver/location', { latitude: lat, longitude: lng }),
   getNearbyTrips: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return api.get(`/users/driver/nearby-trips${qs ? `?${qs}` : ''}`);

@@ -1,7 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
 import TabBar from './components/TabBar';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import DriverShell from './screens/driver/DriverShell';
 import DriverPendingScreen from './screens/DriverPendingScreen';
 import DriverVehicleScreen from './screens/DriverVehicleScreen';
 import HomeScreen from './screens/home';
@@ -26,6 +28,23 @@ function AppShell() {
   const [pendingPhone, setPendingPhone] = useState('');
   const [tab, setTab] = useState('home');
   const [overlay, setOverlay] = useState(null);
+  const [mode, setModeState] = useState('passenger'); // 'passenger' | 'driver'
+
+  // Restore last-used mode across restarts
+  useEffect(() => {
+    AsyncStorage.getItem('shakti_mode').then((m) => {
+      if (m === 'driver') setModeState('driver');
+    });
+  }, []);
+
+  const setMode = (m) => {
+    setModeState(m);
+    AsyncStorage.setItem('shakti_mode', m).catch(() => {});
+  };
+
+  // Only let a user enter driver mode if their driver profile is approved
+  const approvedDriver = user?.driverProfile?.status === 'approved';
+  const effectiveMode = mode === 'driver' && approvedDriver ? 'driver' : 'passenger';
 
   // After OTP verification the user becomes set in context.
   // If they chose the driver role, transition to vehicle details form.
@@ -112,14 +131,29 @@ function AppShell() {
     );
   }
 
-  // ── Passenger app ─────────────────────────────────────────────────────────
   const signOut = async () => {
     setOverlay(null);
     setTab('home');
     setAuthScreen('role-select');
     setRole('passenger');
+    setMode('passenger');
   };
 
+  // ── Driver mode ────────────────────────────────────────────────────────────
+  if (effectiveMode === 'driver') {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <DriverShell
+          initialOnline={user?.driverProfile?.isOnline ?? false}
+          onSwitchToPassenger={() => setMode('passenger')}
+          onSignOut={signOut}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // ── Passenger app ─────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
@@ -140,6 +174,7 @@ function AppShell() {
                 onBack={() => setTab('home')}
                 onSignOut={signOut}
                 onOpenSubscription={() => setOverlay('subscription')}
+                onSwitchToDriver={() => setMode('driver')}
               />
             )}
           </View>

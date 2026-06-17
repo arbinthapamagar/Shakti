@@ -63,7 +63,7 @@ function formatDateTime(value) {
   });
 }
 
-export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription }) {
+export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription, onSwitchToDriver, onSwitchToPassenger }) {
   const { user, logout, refreshUser } = useAuth();
 
   const [driverProfile, setDriverProfile] = useState(null);
@@ -253,6 +253,32 @@ export default function ProfileScreen({ onBack, onSignOut, onOpenSubscription })
             label="Member"
           />
         </View>
+
+        {isDriver && onSwitchToDriver && (
+          <Pressable style={styles.switchModeCard} onPress={onSwitchToDriver}>
+            <View style={styles.switchModeLeft}>
+              <Ionicons name="car-sport" size={20} color="#fff" />
+              <View>
+                <Text style={styles.switchModeTitle}>Switch to Driver mode</Text>
+                <Text style={styles.switchModeSub}>Go online and accept ride requests</Text>
+              </View>
+            </View>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </Pressable>
+        )}
+
+        {onSwitchToPassenger && (
+          <Pressable style={styles.switchModeCardAlt} onPress={onSwitchToPassenger}>
+            <View style={styles.switchModeLeft}>
+              <Ionicons name="person" size={20} color={colors.primaryDark} />
+              <View>
+                <Text style={styles.switchModeTitleAlt}>Switch to Passenger mode</Text>
+                <Text style={styles.switchModeSubAlt}>Book rides as a passenger</Text>
+              </View>
+            </View>
+            <Ionicons name="arrow-forward" size={18} color={colors.primaryDark} />
+          </Pressable>
+        )}
 
         {driverStatus === null && (
           <Pressable
@@ -1758,6 +1784,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+
+  switchModeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+  },
+  switchModeCardAlt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  switchModeLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  switchModeTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  switchModeSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
+  switchModeTitleAlt: { color: colors.primaryDark, fontSize: 15, fontWeight: '800' },
+  switchModeSubAlt: { color: colors.primaryDark, fontSize: 12, marginTop: 2, opacity: 0.8 },
 
   becomeDriverCard: {
     flexDirection: 'row',
