@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   balanceLabel: { color: '#dfeee5', fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   balanceAmount: { color: '#ffffff', fontSize: 34, fontWeight: '800', marginTop: 6, letterSpacing: -1 },
   balanceActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  balanceBtnPrimary: { flex: 1, paddingVertical: 12, borderRadius: 999, backgroundColor: '#ffffff', alignItems: 'center' },
+  balanceBtnPrimary: { flex: 1, paddingVertical: 12, borderRadius: 999, backgroundColor: colors.surface, alignItems: 'center' },
   balanceBtnPrimaryText: { color: colors.primaryDark, fontSize: 14, fontWeight: '700' },
   balanceBtnGhost: { flex: 1, paddingVertical: 12, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', alignItems: 'center' },
   balanceBtnGhostText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },

@@ -153,7 +153,7 @@ function CallPanel({ ticketId }, ref) {
         </div>
       )}
 
-      <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-4 z-10">
+      <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-3 z-10">
         {status === 'incoming' ? (
           <>
             <button onClick={acceptCall} className="h-14 w-14 rounded-full bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center text-white">

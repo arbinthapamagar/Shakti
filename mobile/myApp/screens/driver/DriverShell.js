@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   tabbar: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: 10,

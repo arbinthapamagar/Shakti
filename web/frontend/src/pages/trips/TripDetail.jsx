@@ -10,7 +10,7 @@ import { formatDate, formatDateTime, formatCurrency, formatDistance, formatDurat
 function InfoCard({ title, icon: Icon, children, color = 'indigo' }) {
   const colors = { indigo: 'text-orange-600 bg-orange-50', emerald: 'text-emerald-600 bg-emerald-50', amber: 'text-amber-600 bg-amber-50', blue: 'text-orange-600 bg-orange-50' }
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
+    <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
       <div className="flex items-center gap-2 mb-4">
         <div className={`rounded-lg p-1.5 ${colors[color]}`}><Icon className="h-4 w-4" /></div>
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
@@ -47,7 +47,7 @@ export default function TripDetail() {
   const bids = bidsRes?.data || []
 
   if (isLoading) return <TableSpinner />
-  if (!trip) return <div className="p-6 text-gray-500">Trip not found.</div>
+  if (!trip) return <div className="p-4 text-gray-500">Trip not found.</div>
 
   const rider = trip.userId
   const driver = trip.driverId
@@ -70,7 +70,7 @@ export default function TripDetail() {
         <StatusBadge status={trip.status} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Route */}
         <InfoCard title="Route Details" icon={Navigation} color="indigo" className="lg:col-span-1">
           <div className="space-y-3">
@@ -172,7 +172,7 @@ export default function TripDetail() {
 
         {/* Bids */}
         {bids.length > 0 && (
-          <div className="lg:col-span-1 bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
+          <div className="lg:col-span-1 bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">Bids Received ({bids.length})</h3>
             <div className="space-y-3">
               {bids.map((bid) => (

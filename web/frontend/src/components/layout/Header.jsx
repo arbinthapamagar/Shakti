@@ -1,8 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LogOut, Bell, User, Menu } from 'lucide-react'
+import { LogOut, Bell, User, Menu, Sun, Moon, Monitor } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
+import { useThemeStore } from '../../store/themeStore'
 import { authApi } from '../../api/auth.api'
 import toast from 'react-hot-toast'
+
+const NEXT_MODE = { system: 'light', light: 'dark', dark: 'system' }
+const MODE_ICON = { system: Monitor, light: Sun, dark: Moon }
 
 const TITLES = {
   '/dashboard': 'Dashboard',
@@ -23,6 +27,8 @@ export function Header({ onMenuClick }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { admin, logout } = useAuthStore()
+  const { mode, setMode } = useThemeStore()
+  const ThemeIcon = MODE_ICON[mode] || Monitor
 
   const title = Object.entries(TITLES).find(([path]) =>
     location.pathname.startsWith(path)
@@ -48,9 +54,17 @@ export function Header({ onMenuClick }) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="text-base font-semibold text-gray-800">{title}</h1>
+        <h1 className="font-display text-lg font-bold text-gray-900">{title}</h1>
       </div>
       <div className="flex items-center gap-2">
+        <button
+          onClick={() => setMode(NEXT_MODE[mode])}
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+          title={`Theme: ${mode} — click for ${NEXT_MODE[mode]}`}
+          aria-label="Toggle theme"
+        >
+          <ThemeIcon className="h-5 w-5" />
+        </button>
         <button className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
           <Bell className="h-5 w-5" />
         </button>

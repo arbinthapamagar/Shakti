@@ -112,7 +112,7 @@ export default function TicketList() {
   ]
 
   return (
-    <div className="flex gap-4 items-start">
+    <div className="flex gap-3 items-start">
       <SupportFolders active={statusTab} />
 
       {/* Main column: header + table (rail stays put on the left, Outlook-style) */}

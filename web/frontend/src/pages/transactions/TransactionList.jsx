@@ -154,7 +154,7 @@ export default function TransactionList() {
       />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatsCard title="Total Revenue" value={formatCurrency(summary.totalRevenue || 0)} icon={DollarSign} color="indigo" />
         <StatsCard title="Platform Fees" value={formatCurrency(summary.platformFees || 0)} icon={TrendingUp} color="emerald" />
         <StatsCard title="Pending" value={formatCurrency(summary.pending || 0)} icon={Clock} color="amber" />

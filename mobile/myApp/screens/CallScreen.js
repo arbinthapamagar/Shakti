@@ -1,20 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Alert, NativeModules, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { io } from 'socket.io-client';
 
 // react-native-webrtc is a native module; guard the import so the app doesn't
-// crash on a binary that doesn't include it (Expo Go / older dev client). The JS
-// classes exist even without the native side, so we also check NativeModules.
+// crash on a binary that doesn't include it (Expo Go). If the require succeeds
+// and the API is present, treat it as available — don't probe NativeModules,
+// which is unreliable under the New Architecture (TurboModules).
 let RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, RTCView, mediaDevices;
 let webrtcAvailable = false;
 try {
   // eslint-disable-next-line global-require
   const RTC = require('react-native-webrtc');
   ({ RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, RTCView, mediaDevices } = RTC);
-  webrtcAvailable = !!RTCPeerConnection && !!NativeModules.WebRTCModule;
+  webrtcAvailable = !!RTCPeerConnection && typeof mediaDevices?.getUserMedia === 'function';
 } catch (e) {
   webrtcAvailable = false;
+  console.warn('[CallScreen] react-native-webrtc not available — calls disabled:', e?.message);
 }
 import { tokenStore } from '../api/tokenStore';
 import { ICE_SERVERS, SOCKET_URL } from '../utils/webrtc';
@@ -111,10 +113,15 @@ function CallScreen({ ticketId }, ref) {
       Alert.alert('Calls unavailable', 'In-app calling needs the latest app build. Please update the app.');
       return;
     }
-    setMedia(m); setStatus('calling'); isCallerRef.current = true;
-    const stream = await getMedia(m);
-    attachTracks(newPeer(), stream);
-    socketRef.current?.emit('call:invite', { room: ticketId, media: m });
+    try {
+      setMedia(m); setStatus('calling'); isCallerRef.current = true;
+      const stream = await getMedia(m);
+      attachTracks(newPeer(), stream);
+      socketRef.current?.emit('call:invite', { room: ticketId, media: m });
+    } catch (e) {
+      endLocal();
+      Alert.alert('Could not start call', e?.message || 'Allow camera & microphone access and try again.');
+    }
   };
 
   const acceptCall = async () => {

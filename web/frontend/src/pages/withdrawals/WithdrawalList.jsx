@@ -164,7 +164,7 @@ export default function WithdrawalList() {
       {/* Process modal */}
       <Modal open={!!action} onClose={() => setAction(null)} title={meta?.title || ''} size="sm">
         {action && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <p className="text-sm text-gray-600">
               {meta.title.split(' ')[0]} the {formatCurrency(action.withdrawal.amount)} request from{' '}
               <strong>{action.withdrawal.driverId?.userId?.name || 'this driver'}</strong>?

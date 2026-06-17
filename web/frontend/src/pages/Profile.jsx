@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Mail, Phone, Calendar, Clock, Shield, Edit, X } from 'lucide-react'
+import { Mail, Phone, Calendar, Clock, Shield, Edit, X, Camera, Trash2, Sun, Moon, Monitor } from 'lucide-react'
 import { PageHeader } from '../components/shared/PageHeader'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { Avatar } from '../components/ui/Avatar'
@@ -11,6 +11,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { authApi } from '../api/auth.api'
 import { useAuthStore } from '../store/authStore'
+import { useThemeStore } from '../store/themeStore'
 import { formatDate, formatRelative } from '../utils/format'
 import toast from 'react-hot-toast'
 
@@ -37,9 +38,35 @@ const PERMISSION_LABELS = {
   manageSuppliers: 'Manage Suppliers',
 }
 
+const THEME_OPTIONS = [
+  { key: 'system', label: 'System', icon: Monitor },
+  { key: 'light', label: 'Light', icon: Sun },
+  { key: 'dark', label: 'Dark', icon: Moon },
+]
+
 export default function Profile() {
   const { admin, updateAdmin } = useAuthStore()
+  const { mode, setMode } = useThemeStore()
   const [editing, setEditing] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const avatarUpload = useMutation({
+    mutationFn: (file) => authApi.uploadAvatar(file),
+    onSuccess: (res) => { updateAdmin({ avatarUrl: res?.data?.avatarUrl }); toast.success('Photo updated') },
+    onError: (err) => toast.error(err?.message || 'Failed to upload photo'),
+  })
+
+  const avatarDelete = useMutation({
+    mutationFn: () => authApi.deleteAvatar(),
+    onSuccess: () => { updateAdmin({ avatarUrl: null }); toast.success('Photo removed') },
+    onError: (err) => toast.error(err?.message || 'Failed to remove photo'),
+  })
+
+  const onPickAvatar = (e) => {
+    const file = e.target.files?.[0]
+    if (file) avatarUpload.mutate(file)
+    e.target.value = '' // allow re-selecting the same file
+  }
 
   const mutation = useMutation({
     mutationFn: authApi.updateProfile,
@@ -82,12 +109,33 @@ export default function Profile() {
         actions={!editing && <Button icon={Edit} onClick={startEdit}>Edit Profile</Button>}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Profile card */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 text-center">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
             <div className="flex justify-center mb-3">
-              <Avatar src={admin?.avatarUrl} name={admin?.name} size="xl" />
+              <div className="relative">
+                <Avatar src={admin?.avatarUrl} name={admin?.name} size="xl" />
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPickAvatar} />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={avatarUpload.isPending}
+                  title={admin?.avatarUrl ? 'Change photo' : 'Add photo'}
+                  className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center shadow disabled:opacity-50"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+                {admin?.avatarUrl && (
+                  <button
+                    onClick={() => { if (confirm('Remove your profile photo?')) avatarDelete.mutate() }}
+                    disabled={avatarDelete.isPending}
+                    title="Remove photo"
+                    className="absolute -bottom-1 -left-1 h-8 w-8 rounded-full bg-white border border-gray-200 hover:bg-red-50 text-red-500 flex items-center justify-center shadow disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
             <p className="text-lg font-bold text-gray-900">{admin?.name}</p>
             <div className="flex items-center justify-center gap-2 mt-1">
@@ -116,17 +164,17 @@ export default function Profile() {
         </div>
 
         {/* Right column: edit form OR permissions */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-3">
           {editing ? (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-sm font-semibold text-gray-900">Edit Profile</h3>
                 <button onClick={() => setEditing(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <form onSubmit={submit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={submit} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   <Input label="Full Name" error={errors.name?.message} {...register('name')} />
                   <Input label="Phone" error={errors.phone?.message} {...register('phone')} />
                 </div>
@@ -134,7 +182,7 @@ export default function Profile() {
 
                 <div className="pt-2 border-t border-gray-100">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Change Password (optional)</p>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <Input label="Current Password" type="password" placeholder="••••••••" error={errors.currentPassword?.message} {...register('currentPassword')} />
                     <Input label="New Password" type="password" placeholder="Min 6 characters" error={errors.newPassword?.message} {...register('newPassword')} />
                   </div>
@@ -147,7 +195,7 @@ export default function Profile() {
               </form>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Shield className="h-4 w-4 text-orange-600" />
                 <h3 className="text-sm font-semibold text-gray-900">
@@ -166,6 +214,31 @@ export default function Profile() {
               </div>
             </div>
           )}
+
+          {/* Appearance */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Appearance</h3>
+            <p className="text-xs text-gray-400 mb-4">Choose how the admin looks. System follows your device.</p>
+            <div className="grid grid-cols-3 gap-3">
+              {THEME_OPTIONS.map(({ key, label, icon: Icon }) => {
+                const active = mode === key
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setMode(key)}
+                    className={`flex flex-col items-center gap-2 py-4 rounded-xl border-[1.5px] transition-colors ${
+                      active
+                        ? 'border-orange-500 bg-orange-50 text-orange-700'
+                        : 'border-gray-200 text-gray-500 hover:border-orange-300'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="text-sm font-medium">{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -18,7 +18,7 @@ export function DataTable({ columns, data, isLoading, emptyTitle, emptyDesc, onR
               <th
                 key={col.key}
                 className={cn(
-                  'px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap',
+                  'px-4 py-2.5 text-left font-mono text-[10px] font-semibold text-gray-500 uppercase tracking-[0.12em] whitespace-nowrap',
                   col.className
                 )}
               >
@@ -41,7 +41,7 @@ export function DataTable({ columns, data, isLoading, emptyTitle, emptyDesc, onR
                 <td
                   key={col.key}
                   className={cn(
-                    'px-4 py-3 text-sm text-gray-700 whitespace-nowrap',
+                    'px-4 py-2.5 text-sm text-gray-700 whitespace-nowrap',
                     col.cellClassName
                   )}
                 >

@@ -93,13 +93,13 @@ export default function Notifications() {
     <div>
       <PageHeader title="Send Notifications" description="Broadcast push notifications to users and drivers" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Compose form */}
         <div className="lg:col-span-2 space-y-5">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">Compose Notification</h3>
-            <form onSubmit={handleSubmit((v) => sendMutation.mutate(v))} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit((v) => sendMutation.mutate(v))} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <Select
                   label="Send To"
                   options={TARGET_OPTIONS}
@@ -158,7 +158,7 @@ export default function Notifications() {
 
           {/* Sent history */}
           {sent.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Recently Sent ({sent.length})</h3>
               <div className="space-y-3">
                 {sent.map((n, i) => (
@@ -181,7 +181,7 @@ export default function Notifications() {
 
         {/* Quick templates */}
         <div className="space-y-5">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">Quick Templates</h3>
             <div className="space-y-2">
               {QUICK_TEMPLATES.map((tpl, i) => (
@@ -201,7 +201,7 @@ export default function Notifications() {
             </div>
           </div>
 
-          <div className="bg-orange-50 rounded-xl p-5 border border-orange-100">
+          <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
             <h4 className="text-sm font-semibold text-orange-800 mb-2">Tips</h4>
             <ul className="space-y-2 text-xs text-orange-700">
               <li>• Keep titles under 60 characters</li>

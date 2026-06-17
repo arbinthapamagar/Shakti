@@ -229,7 +229,7 @@ export default function UserList() {
 function UserDetailContent({ user }) {
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <Avatar src={user.avatarUrl} name={user.name} size="xl" />
         <div>
           <h3 className="text-lg font-bold text-gray-900">{user.name}</h3>
@@ -241,7 +241,7 @@ function UserDetailContent({ user }) {
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         {[
           { label: 'Gender', value: user.gender },
           { label: 'Date of Birth', value: formatDate(user.dateOfBirth) },

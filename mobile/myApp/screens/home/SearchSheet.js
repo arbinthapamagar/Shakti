@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   inputRowActive: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderColor: colors.primary,
   },
   textInput: {

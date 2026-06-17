@@ -1,11 +1,12 @@
 import { cn } from '../../utils/cn'
 
+// Hand-stamped buttons: a hard offset shadow that "presses in" on click.
 const variants = {
-  primary: 'bg-orange-600 text-white hover:bg-orange-700 focus:ring-orange-400',
+  primary: 'bg-orange-600 text-white hover:bg-orange-700 focus:ring-orange-400 shadow-[2px_2px_0_rgba(154,52,18,0.30)] hover:shadow-[1px_1px_0_rgba(154,52,18,0.30)] active:translate-x-px active:translate-y-px active:shadow-none',
   secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-400',
-  danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+  danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-[2px_2px_0_rgba(127,29,29,0.28)] active:translate-x-px active:translate-y-px active:shadow-none',
   ghost: 'text-gray-600 hover:bg-gray-100 focus:ring-gray-400',
-  success: 'bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500',
+  success: 'bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500 shadow-[2px_2px_0_rgba(6,78,59,0.25)] active:translate-x-px active:translate-y-px active:shadow-none',
   warning: 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-400',
 }
 

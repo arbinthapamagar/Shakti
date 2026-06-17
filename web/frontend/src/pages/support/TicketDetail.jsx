@@ -132,7 +132,7 @@ export default function TicketDetail() {
   const ticket = ticketRes?.data
 
   if (isLoading) return <TableSpinner />
-  if (!ticket) return <div className="p-6 text-gray-500">Ticket not found.</div>
+  if (!ticket) return <div className="p-4 text-gray-500">Ticket not found.</div>
 
   const person = ticket.userId || ticket.driverId
 
@@ -168,7 +168,7 @@ export default function TicketDetail() {
   const filteredAgents = agents.filter((a) => a.name?.toLowerCase().includes(mentionFilter))
 
   return (
-    <div className="flex gap-4 items-start">
+    <div className="flex gap-3 items-start">
       <SupportFolders active={ticket.status} />
 
       <div className="flex-1 min-w-0">
@@ -195,10 +195,10 @@ export default function TicketDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-4 gap-3">
         {/* Thread */}
         <div className="col-span-3 space-y-5">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h2 className="text-base font-bold text-gray-900">{ticket.subject}</h2>
@@ -210,7 +210,7 @@ export default function TicketDetail() {
             </div>
 
             {/* Messages */}
-            <div className="space-y-4 max-h-[50vh] overflow-y-auto scrollbar-thin pr-1">
+            <div className="space-y-3 max-h-[50vh] overflow-y-auto scrollbar-thin pr-1">
               {ticket.messages?.map((msg, i) => {
                 const isAdmin = msg.senderType === 'admin'
                 return (
@@ -267,7 +267,7 @@ export default function TicketDetail() {
           </div>
 
           {/* Internal notes (admin-only) */}
-          <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-5">
+          <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-4">
             <div className="flex items-center gap-2 mb-4">
               <Lock className="h-4 w-4 text-amber-600" />
               <h3 className="text-sm font-semibold text-amber-800">Internal notes</h3>
@@ -402,7 +402,7 @@ export default function TicketDetail() {
         </div>
 
         {/* Sidebar info */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Submitted By</h3>
             <div className="flex items-center gap-3">

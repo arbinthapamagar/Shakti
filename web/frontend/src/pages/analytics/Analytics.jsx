@@ -73,7 +73,7 @@ export default function Analytics() {
       />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-3 mb-6">
         <StatsCard
           title="Total Trips"
           value={overview.totalTrips?.toLocaleString() ?? '—'}
@@ -109,7 +109,7 @@ export default function Analytics() {
       </div>
 
       {/* Trips & Revenue area chart */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-5 shadow-sm mb-6">
+      <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-4 shadow-sm mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">Trips & Revenue Trend</h3>
@@ -147,9 +147,9 @@ export default function Analytics() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-3 mb-6">
         {/* User & Driver growth */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-900 mb-1">User & Driver Growth</h3>
           <p className="text-xs text-gray-400 mb-4">New registrations over selected period</p>
           {usersLoading ? (
@@ -172,7 +172,7 @@ export default function Analytics() {
         </div>
 
         {/* Trip status breakdown */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Trip Completion Rate</h3>
           <p className="text-xs text-gray-400 mb-4">Completed vs cancelled</p>
           {tripsLoading ? (
@@ -196,7 +196,7 @@ export default function Analytics() {
       </div>
 
       {/* Top Drivers */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-5 shadow-sm">
+      <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Top Performing Drivers</h3>
         {driversLoading ? (
           <div className="h-32 flex items-center justify-center text-sm text-gray-400">Loading...</div>

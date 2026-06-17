@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { bidApi, tripApi } from '../../api/trip.api';
+import { userApi } from '../../api/user.api';
 
 const VEHICLE_TYPES = [
   { id: 'tuktuk', name: 'Rickshaw', note: 'Up to 3 passengers', baseFare: 80, eta: 3 },
@@ -46,6 +47,7 @@ export default function useRideFlow() {
   const [acceptedBid, setAcceptedBid] = useState(null);
   const [tripStatus, setTripStatus] = useState('arriving');
   const [locating, setLocating] = useState(true);
+  const [standardFare, setStandardFare] = useState(null); // bid floor from Pricing Control
 
   // Trip + bidding state
   const [tripId, setTripId] = useState(null);
@@ -75,6 +77,28 @@ export default function useRideFlow() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Fetch the standard fare (bid floor) once we're choosing a ride and have a route
+  useEffect(() => {
+    if (step !== 'options' || !vehicleId || !pickupCoords || !destCoords) {
+      setStandardFare(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await userApi.getFareQuote({
+          vehicleType: vehicleId,
+          lat1: pickupCoords.lat, lng1: pickupCoords.lng,
+          lat2: destCoords.lat, lng2: destCoords.lng,
+        });
+        if (!cancelled) setStandardFare(res.data?.standardFare ?? null);
+      } catch {
+        if (!cancelled) setStandardFare(null); // server still enforces on create
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [step, vehicleId, pickupCoords, destCoords]);
 
   // Poll bids while in bidding step
   useEffect(() => {
@@ -255,6 +279,7 @@ export default function useRideFlow() {
     tripStatus,
     setTripStatus,
     locating,
+    standardFare,
     tripId,
     bids,
     creatingTrip,

@@ -36,6 +36,7 @@ export default function HomeScreen() {
     payment,
     acceptedBid,
     tripStatus,
+    standardFare,
     setStep,
     goBack,
     reset,
@@ -150,6 +151,7 @@ export default function HomeScreen() {
               setVehicleId={setVehicleId}
               offeredPrice={offeredPrice}
               setOfferedPrice={setOfferedPrice}
+              standardFare={standardFare}
               onConfirm={requestRide}
               loading={creatingTrip}
             />
@@ -198,7 +200,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow.fab,

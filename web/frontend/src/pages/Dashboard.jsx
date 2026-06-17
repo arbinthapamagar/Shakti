@@ -95,18 +95,18 @@ export default function Dashboard() {
   }))
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3">
       {/* Stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-        {statCards.map((card) => (
-          <StatsCard key={card.title} {...card} loading={statsLoading} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {statCards.map((card, i) => (
+          <StatsCard key={card.title} {...card} index={i} loading={statsLoading} />
         ))}
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Weekly trips line chart */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 p-4 sm:p-5 shadow-sm">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 p-4 sm:p-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Weekly Performance</h3>
@@ -134,14 +134,14 @@ export default function Dashboard() {
               {tripsLoading ? 'Loading chart...' : 'No data for this period'}
             </div>
           )}
-          <div className="flex gap-4 mt-2 justify-center">
+          <div className="flex gap-3 mt-2 justify-center">
             <span className="flex items-center gap-1.5 text-xs text-gray-500"><span className="h-2 w-4 bg-orange-500 rounded" />Trips</span>
             <span className="flex items-center gap-1.5 text-xs text-gray-500"><span className="h-2 w-4 bg-emerald-500 rounded" />Revenue</span>
           </div>
         </div>
 
         {/* Trip status distribution */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-4 shadow-sm">
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-gray-900">Trip Status</h3>
             <p className="text-xs text-gray-400">Distribution of recent trips</p>
@@ -184,7 +184,7 @@ export default function Dashboard() {
 
       {/* Revenue bar chart */}
       {tripsChartData.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-4 shadow-sm">
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-gray-900">Daily Revenue</h3>
             <p className="text-xs text-gray-400">Platform earnings this week (NPR)</p>
@@ -205,7 +205,7 @@ export default function Dashboard() {
       )}
 
       {/* Recent trips + Quick actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-gray-50">
             <h3 className="text-sm font-semibold text-gray-900">Recent Trips</h3>
@@ -220,7 +220,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick actions */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-2">
             {[

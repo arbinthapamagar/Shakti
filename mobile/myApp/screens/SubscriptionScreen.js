@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroTitle: { color: '#ffffff', fontSize: 20, fontWeight: '800' },
   heroStatus: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.18)' },
-  heroStatusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#ffffff' },
+  heroStatusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.surface },
   heroStatusText: { color: '#ffffff', fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
   heroPrice: { color: '#ffffff', fontSize: 30, fontWeight: '800', marginTop: 10, letterSpacing: -1 },
   heroPer: { fontSize: 14, fontWeight: '600' },

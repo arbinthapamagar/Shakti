@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCircle, XCircle, Star, Car, FileText, TrendingUp, Eye } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, Star, Car, FileText, TrendingUp, Eye, Wallet } from 'lucide-react'
 import { Tabs } from '../../components/ui/Tabs'
 import { Button } from '../../components/ui/Button'
+import { Modal } from '../../components/ui/Modal'
+import { Input, Textarea } from '../../components/ui/Input'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { DataTable } from '../../components/shared/DataTable'
 import { DocumentLightbox } from '../../components/shared/DocumentLightbox'
@@ -22,6 +24,7 @@ export default function DriverDetail() {
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('profile')
   const [lightboxDoc, setLightboxDoc] = useState(null)
+  const [showGrant, setShowGrant] = useState(false)
 
   const { data: driverRes, isLoading } = useQuery({
     queryKey: ['driver', id],
@@ -50,6 +53,16 @@ export default function DriverDetail() {
     mutationFn: ({ docId, reason }) => documentsApi.reject(docId, reason),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['driver-docs', id] }); toast.success('Document rejected') },
     onError: (err) => toast.error(err?.message || 'Failed'),
+  })
+
+  const grant = useMutation({
+    mutationFn: (data) => driversApi.grant(id, data),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['driver', id] })
+      toast.success(res?.message || 'Money granted to driver')
+      setShowGrant(false)
+    },
+    onError: (err) => toast.error(err?.message || 'Failed to grant money'),
   })
 
   const driverPayload = driverRes?.data
@@ -136,7 +149,7 @@ export default function DriverDetail() {
   ]
 
   if (isLoading) return <TableSpinner />
-  if (!driver) return <div className="p-6 text-gray-500">Driver not found.</div>
+  if (!driver) return <div className="p-4 text-gray-500">Driver not found.</div>
 
   const user = driver.userId
 
@@ -151,6 +164,9 @@ export default function DriverDetail() {
           <ArrowLeft className="h-4 w-4" /> Back to Drivers
         </button>
         <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" icon={Wallet} onClick={() => setShowGrant(true)}>
+            Grant Money
+          </Button>
           {driver.status === 'pending' && (
             <>
               <Button
@@ -187,8 +203,8 @@ export default function DriverDetail() {
       </div>
 
       {/* Driver card */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
-        <div className="flex items-start gap-5">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">
+        <div className="flex items-start gap-3">
           <Avatar src={user?.avatarUrl} name={user?.name} size="xl" />
           <div className="flex-1">
             <div className="flex items-start justify-between">
@@ -203,14 +219,16 @@ export default function DriverDetail() {
                 <StatusBadge status={driver.isOnline ? 'online' : 'offline'} />
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-4 gap-4">
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3">
               {[
                 { label: 'Total Rides', value: driver.totalRides?.toLocaleString() || '0', icon: Car },
                 { label: 'Rating', value: `${(driver.rating || 0).toFixed(1)} ⭐`, icon: Star },
                 { label: 'Total Earnings', value: formatCurrency(driver.earnings || 0), icon: TrendingUp },
+                { label: 'Wallet Balance', value: formatCurrency(driver.walletBalance || 0), icon: Wallet },
                 { label: 'Cancelled', value: driver.cancelledRides || 0, icon: XCircle },
               ].map(({ label, value, icon: Icon }) => (
                 <div key={label} className="bg-gray-50 rounded-lg p-3 text-center">
+                  <Icon className="h-4 w-4 text-gray-400 mx-auto mb-1" />
                   <p className="text-xs text-gray-400">{label}</p>
                   <p className="text-base font-bold text-gray-900 mt-0.5">{value}</p>
                 </div>
@@ -225,9 +243,9 @@ export default function DriverDetail() {
         <div className="px-6 pt-4">
           <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
         </div>
-        <div className="p-6">
+        <div className="p-4">
           {activeTab === 'profile' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'License Number', value: driver.licenseNumber },
                 { label: 'License Expiry', value: formatDate(driver.licenseExpiry) },
@@ -245,7 +263,7 @@ export default function DriverDetail() {
           )}
 
           {activeTab === 'vehicle' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Vehicle Type', value: driver.vehicleType },
                 { label: 'Vehicle Plate', value: driver.vehiclePlate },
@@ -287,7 +305,7 @@ export default function DriverDetail() {
           )}
 
           {activeTab === 'stats' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Total Rides Completed', value: driver.totalRides?.toLocaleString() || '0' },
                 { label: 'Cancelled Rides', value: driver.cancelledRides || 0 },
@@ -308,6 +326,66 @@ export default function DriverDetail() {
 
       {/* Lightbox — opens PDFs as PDF, images inline */}
       <DocumentLightbox doc={lightboxDoc} onClose={() => setLightboxDoc(null)} />
+
+      {/* Grant money modal */}
+      <Modal open={showGrant} onClose={() => setShowGrant(false)} title="Grant Money to Driver" size="sm">
+        <GrantMoneyForm
+          driverName={user?.name}
+          walletBalance={driver.walletBalance || 0}
+          loading={grant.isPending}
+          onCancel={() => setShowGrant(false)}
+          onSubmit={(values) => grant.mutate(values)}
+        />
+      </Modal>
     </div>
+  )
+}
+
+function GrantMoneyForm({ driverName, walletBalance, loading, onCancel, onSubmit }) {
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
+
+  const parsed = parseFloat(amount)
+  const valid = parsed > 0
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (!valid) return
+    onSubmit({ amount: parsed, note: note.trim() || undefined })
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 text-sm">
+        <p className="text-gray-600">Crediting <strong>{driverName || 'driver'}</strong></p>
+        <p className="text-xs text-gray-400 mt-0.5">Current wallet balance: {formatCurrency(walletBalance)}</p>
+      </div>
+
+      <Input
+        label="Amount (NPR)"
+        type="number"
+        min="1"
+        step="0.01"
+        placeholder="e.g. 500"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        autoFocus
+      />
+
+      <Textarea
+        label="Note (optional)"
+        placeholder="e.g. Festival promotion bonus — sent to the driver's notification and email"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
+      <p className="text-xs text-gray-400 -mt-2">The driver gets an in-app notification and an email with this note.</p>
+
+      <div className="flex gap-3 pt-1">
+        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" className="flex-1" loading={loading} disabled={!valid}>
+          Grant {valid ? formatCurrency(parsed) : 'Money'}
+        </Button>
+      </div>
+    </form>
   )
 }

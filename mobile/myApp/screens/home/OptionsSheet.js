@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -22,19 +23,28 @@ export default function OptionsSheet({
   setVehicleId,
   offeredPrice,
   setOfferedPrice,
+  standardFare = null,
   onConfirm,
   loading = false,
 }) {
   const vehicle = VEHICLE_TYPES.find((v) => v.id === vehicleId);
   const suggested = vehicle?.baseFare ?? 0;
+  const floor = standardFare && standardFare > 0 ? standardFare : MIN_FARE;
   const priceNum = Number(offeredPrice) || 0;
   const pickupReady = !!pickup && pickup.trim().length > 0;
   const destReady = !!destination && destination.trim().length > 0;
-  const canConfirm = priceNum >= MIN_FARE && pickupReady && destReady;
+  const canConfirm = priceNum >= floor && pickupReady && destReady;
+
+  // Once the standard fare is known, never let the offer sit below it.
+  useEffect(() => {
+    if (standardFare && priceNum < standardFare) {
+      setOfferedPrice(String(standardFare));
+    }
+  }, [standardFare]);
 
   const selectVehicle = (id, baseFare) => {
     setVehicleId(id);
-    setOfferedPrice(String(baseFare));
+    setOfferedPrice(String(Math.max(baseFare, floor)));
   };
 
   return (
@@ -75,7 +85,7 @@ export default function OptionsSheet({
             const selected = r.id === vehicleId;
             const current = Number(offeredPrice) || r.baseFare;
             const bump = (delta) =>
-              setOfferedPrice(String(Math.max(MIN_FARE, current + delta)));
+              setOfferedPrice(String(Math.max(floor, current + delta)));
             return (
               <View
                 key={r.id}
@@ -139,9 +149,16 @@ export default function OptionsSheet({
           })}
         </View>
 
-        <Text style={styles.hint}>
-          Drivers bid on your offer. You pick the best one.
-        </Text>
+        {standardFare ? (
+          <Text style={styles.hint}>
+            Standard fare is Rs {standardFare}. You can offer this or more — drivers
+            then bid and you pick the best one.
+          </Text>
+        ) : (
+          <Text style={styles.hint}>
+            Drivers bid on your offer. You pick the best one.
+          </Text>
+        )}
       </ScrollView>
 
       <Button

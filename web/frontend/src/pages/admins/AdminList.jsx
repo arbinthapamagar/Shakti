@@ -310,7 +310,7 @@ export default function AdminList() {
       />
 
       {/* Role summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         {[
           {
             role: 'Superadmin',
@@ -434,7 +434,7 @@ function AdminDetail({ admin, isSelf, canManage, onEditProfile, onEdit, onToggle
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-xl border border-orange-100">
+      <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-xl border border-orange-100">
         <Avatar src={admin.avatarUrl} name={admin.name} size="lg" />
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -549,8 +549,8 @@ function ProfileEditForm({ admin, loading, onCancel, onSubmit }) {
   })
 
   return (
-    <form onSubmit={submit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={submit} className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
         <Input label="Full Name" error={errors.name?.message} {...register('name')} />
         <Input label="Phone" error={errors.phone?.message} {...register('phone')} />
       </div>
@@ -558,7 +558,7 @@ function ProfileEditForm({ admin, loading, onCancel, onSubmit }) {
 
       <div className="pt-2 border-t border-gray-100">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Change Password (optional)</p>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <Input label="Current Password" type="password" placeholder="••••••••" error={errors.currentPassword?.message} {...register('currentPassword')} />
           <Input label="New Password" type="password" placeholder="Min 6 characters" error={errors.newPassword?.message} {...register('newPassword')} />
         </div>
@@ -610,8 +610,8 @@ function CreateAdminForm({ onSubmit, loading, onCancel }) {
       </div>
 
       {step === 1 && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
             <Input label="Full Name" placeholder="John Doe" error={errors.name?.message} {...register('name')} />
             <Input label="Phone" placeholder="9800000000" error={errors.phone?.message} {...register('phone')} />
           </div>
@@ -657,7 +657,7 @@ function CreateAdminForm({ onSubmit, loading, onCancel }) {
       )}
 
       {step === 2 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-gray-800">Choose what this admin can access</p>
@@ -677,7 +677,7 @@ function CreateAdminForm({ onSubmit, loading, onCancel }) {
                   key={perm.key}
                   type="button"
                   onClick={() => togglePerm(perm.key)}
-                  className={`flex items-center gap-4 p-3 rounded-xl border-2 text-left transition-all ${
+                  className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
                     enabled ? 'border-orange-300 bg-orange-50' : 'border-gray-100 bg-white hover:border-gray-200'
                   }`}
                 >

@@ -1,9 +1,12 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   LayoutDashboard, Users, Car, Navigation, Repeat, CreditCard, FileText,
-  MessageSquare, Building2, BarChart2, Shield, Bell, ChevronRight, Zap, X
+  MessageSquare, Building2, BarChart2, Shield, Bell, ChevronRight, Zap, X, Banknote, Coins, Siren
 } from 'lucide-react'
 import { cn } from '../../utils/cn'
+import { dashboardApi } from '../../api/dashboard.api'
 import { useAuthStore, hasPermission } from '../../store/authStore'
 
 const navSections = [
@@ -18,7 +21,7 @@ const navSections = [
     label: 'People',
     items: [
       { to: '/users', label: 'Users', icon: Users, permission: 'manageUsers' },
-      { to: '/drivers', label: 'Drivers', icon: Car, permission: 'manageDrivers' },
+      { to: '/drivers', label: 'Drivers', icon: Car, permission: 'manageDrivers', badge: 'drivers' },
     ],
   },
   {
@@ -26,19 +29,22 @@ const navSections = [
     items: [
       { to: '/trips', label: 'Trips', icon: Navigation, permission: 'manageTrips' },
       { to: '/subscriptions', label: 'Subscriptions', icon: Repeat, permission: 'manageSubscriptions' },
-      { to: '/documents', label: 'Documents', icon: FileText, permission: 'verifyDocuments' },
+      { to: '/documents', label: 'Documents', icon: FileText, permission: 'verifyDocuments', badge: 'documents' },
     ],
   },
   {
     label: 'Finance',
     items: [
       { to: '/transactions', label: 'Transactions', icon: CreditCard, permission: 'managePayments' },
+      { to: '/withdrawals', label: 'Withdrawals', icon: Banknote, permission: 'managePayments', badge: 'withdrawals' },
+      { to: '/pricing', label: 'Pricing Control', icon: Coins, permission: 'managePayments' },
     ],
   },
   {
     label: 'Support & Business',
     items: [
-      { to: '/support', label: 'Support', icon: MessageSquare, permission: 'handleSupport' },
+      { to: '/support', label: 'Support', icon: MessageSquare, permission: 'handleSupport', badge: 'support' },
+      { to: '/emergencies', label: 'Emergency Alerts', icon: Siren, permission: 'handleSupport', badge: 'emergencies' },
       { to: '/suppliers', label: 'Suppliers', icon: Building2, permission: 'manageSuppliers' },
     ],
   },
@@ -54,6 +60,29 @@ const navSections = [
 export function Sidebar({ open, onClose }) {
   const { admin } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  const qc = useQueryClient()
+
+  // Poll counts of NEW (unseen) items so the badges stay fresh.
+  const { data: countsRes } = useQuery({
+    queryKey: ['nav-counts'],
+    queryFn: () => dashboardApi.navCounts(),
+    refetchInterval: 20000,
+    refetchOnWindowFocus: true,
+  })
+  const counts = countsRes?.data || {}
+
+  // Viewing a badged section marks it seen → its "new" badge clears.
+  useEffect(() => {
+    const path = location.pathname
+    const item = navSections.flatMap((s) => s.items).find(
+      (it) => it.badge && (path === it.to || path.startsWith(`${it.to}/`))
+    )
+    if (!item) return
+    dashboardApi.markNavSeen(item.badge)
+      .then(() => qc.invalidateQueries({ queryKey: ['nav-counts'] }))
+      .catch(() => {})
+  }, [location.pathname, qc])
 
   return (
     <>
@@ -70,12 +99,14 @@ export function Sidebar({ open, onClose }) {
       >
         {/* Logo + mobile close */}
         <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-200">
-          <div className="bg-orange-500 rounded-lg p-1.5">
+          <div className="bg-orange-500 p-1.5 -rotate-2" style={{ borderRadius: '11px 6px 10px 7px' }}>
             <Zap className="h-5 w-5 text-white" />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-gray-900 text-base leading-tight">Shakti</p>
-            <p className="text-orange-600 text-xs">Admin Portal</p>
+            <p className="font-display font-extrabold text-gray-900 text-lg leading-none flex items-baseline gap-1.5">
+              Shakti <span className="text-orange-500 font-sans text-sm font-medium">शक्ति</span>
+            </p>
+            <p className="eyebrow mt-1 text-[10px]">Admin Portal</p>
           </div>
           <button
             onClick={onClose}
@@ -94,20 +125,22 @@ export function Sidebar({ open, onClose }) {
             if (!visibleItems.length) return null
             return (
               <div key={section.label} className="mb-5">
-                <p className="px-5 mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <p className="eyebrow px-5 mb-2 text-gray-400">
                   {section.label}
                 </p>
-                {visibleItems.map((item) => (
+                {visibleItems.map((item) => {
+                  const count = item.badge ? (counts[item.badge] || 0) : 0
+                  return (
                   <NavLink
                     key={item.to}
                     to={item.to}
                     onClick={onClose}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-colors group',
+                        'flex items-center gap-3 mx-2.5 px-3 py-2.5 text-sm font-medium transition-colors group',
                         isActive
-                          ? 'bg-orange-500 text-white'
-                          : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
+                          ? 'bg-orange-500 text-white nav-blob shadow-[2px_3px_0_rgba(154,52,18,0.25)]'
+                          : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg'
                       )
                     }
                   >
@@ -115,11 +148,20 @@ export function Sidebar({ open, onClose }) {
                       <>
                         <item.icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-white' : 'text-gray-400 group-hover:text-orange-600')} />
                         <span className="flex-1">{item.label}</span>
-                        {isActive && <ChevronRight className="h-3 w-3 opacity-60" />}
+                        {count > 0 && (
+                          <span className={cn(
+                            'min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center',
+                            isActive ? 'bg-white text-orange-600' : 'bg-red-500 text-white'
+                          )}>
+                            {count > 99 ? '99+' : count}
+                          </span>
+                        )}
+                        {isActive && count === 0 && <ChevronRight className="h-3 w-3 opacity-60" />}
                       </>
                     )}
                   </NavLink>
-                ))}
+                  )
+                })}
               </div>
             )
           })}

@@ -8,4 +8,5 @@ export const driversApi = {
   documents: (id) => api.get(`/admin/drivers/${id}/documents`),
   trips: (id, params) => api.get(`/admin/drivers/${id}/trips`, { params }),
   earnings: (id) => api.get(`/admin/drivers/${id}/earnings`),
+  grant: (id, data) => api.post(`/admin/drivers/${id}/grant`, data),
 }

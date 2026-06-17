@@ -22,7 +22,7 @@ export default function Layout() {
       <div className="lg:pl-60">
         <Header onMenuClick={() => setSidebarOpen(true)} />
         <main className="pt-14 min-h-screen">
-          <div className="p-4 sm:p-6">
+          <div className="p-3 sm:p-5 mx-auto w-full max-w-[1600px]">
             <Outlet />
           </div>
         </main>

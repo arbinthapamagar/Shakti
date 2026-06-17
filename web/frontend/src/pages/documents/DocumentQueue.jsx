@@ -179,7 +179,7 @@ export default function DocumentQueue() {
 
       {/* Reject reason modal */}
       <Modal open={!!rejectDoc} onClose={() => { setRejectDoc(null); setRejectReason('') }} title="Reject Document" size="sm">
-        <div className="space-y-4">
+        <div className="space-y-3">
           <p className="text-sm text-gray-600">
             Rejecting: <strong>{docTypeLabel(rejectDoc?.type)}</strong>
           </p>

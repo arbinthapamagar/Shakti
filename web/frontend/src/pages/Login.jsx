@@ -47,7 +47,7 @@ export default function Login() {
           <p className="text-gray-500 text-sm mt-1">Sign in to manage your platform</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border border-orange-100">
+        <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 border border-orange-100">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">Sign in to your account</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
