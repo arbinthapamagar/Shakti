@@ -50,7 +50,7 @@ export function EmptyConversation() {
   )
 }
 
-// ── Left rail: folders + personal filters + global permissions ───────────────
+// Left rail: status folders, personal filters, and the global permission toggles.
 function FolderRail() {
   const qc = useQueryClient()
   const [params] = useSearchParams()
@@ -142,7 +142,7 @@ function FolderRail() {
   )
 }
 
-// ── Middle: conversation list ────────────────────────────────────────────────
+// Middle column: the list of conversations for the current folder/filter.
 function ConversationList() {
   const { id: activeId } = useParams()
   const [params] = useSearchParams()

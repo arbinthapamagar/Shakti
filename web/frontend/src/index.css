@@ -4,11 +4,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ───────────────────────────────────────────────────────────────────────────
-   Tempu admin — simple, flat, professional.
-   White surfaces on a light gray page, neutral grays, one orange accent.
-   No grain, no asymmetric radii, no offset shadows. Clean SaaS console.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* Tempu admin theme: flat and simple. White cards on a light grey page,
+   neutral grey text, one accent colour. No textures or fancy shadows. */
 :root {
   --page: #eef0f4;          /* app background — soft cool grey so white cards lift */
   --surface: #ffffff;       /* cards, panels */
@@ -93,9 +90,10 @@ html.dark {
   .nav-blob { border-radius: 0.5rem; }
 }
 
-/* ── Re-skin the utility classes the whole app already uses, driven by the
-   tokens above. In light mode these match clean Tailwind defaults; in dark
-   mode they flip. Placed after @tailwind utilities so they win by source. ── */
+/* Re-skin the Tailwind utility classes the app already uses, driven by the
+   tokens above, so every page picks up the theme without editing each file.
+   In light mode these match Tailwind's defaults; in dark mode they flip.
+   They sit after @tailwind utilities on purpose so they win by source order. */
 .bg-white { background-color: var(--surface); }
 .bg-gray-50 { background-color: var(--surface-2); }
 .bg-gray-100 { background-color: var(--page); }
@@ -120,8 +118,9 @@ html.dark {
 .text-gray-500 { color: var(--t-500); }
 .text-gray-400 { color: var(--t-400); }
 
-/* ── Accent: navy blue (remaps the orange ramp the whole app uses). Delete
-   this block + reset the three --accent* tokens to restore Tempu orange. ── */
+/* Accent colour: navy blue. This remaps the orange utility classes the app
+   uses, so the accent changes everywhere from one place. To go back to the
+   orange accent, delete this block and reset the three --accent* tokens. */
 .bg-orange-50 { background-color: #eef2ff; }
 .bg-orange-100 { background-color: #dbe4fe; }
 .bg-orange-500 { background-color: #1e40af; }

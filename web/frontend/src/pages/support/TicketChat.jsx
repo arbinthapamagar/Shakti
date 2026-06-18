@@ -176,13 +176,13 @@ export default function TicketChat() {
   const sendReply = () => { if (canSendReply && !replyMutation.isPending) replyMutation.mutate() }
   const replyDisabled = ticket.status === 'closed'
 
-  // ── unified timeline: customer/admin messages + internal notes, by time ──
+  // Show messages and internal notes together, ordered by time.
   const timeline = [
     ...(ticket.messages || []).map((m) => ({ kind: 'message', at: m.createdAt, data: m })),
     ...(ticket.comments || []).map((c) => ({ kind: 'note', at: c.createdAt, data: c })),
   ].sort((a, b) => new Date(a.at) - new Date(b.at))
 
-  // ── @mention autocomplete ──
+  // Watch for "@" while typing a note and pop the agent picker.
   const onCommentChange = (e) => {
     const val = e.target.value
     setComment(val)
